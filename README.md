@@ -1,7 +1,7 @@
 # Scan Trash Project
 
 <div align="center">
-  <img src="public/logo.png" alt="Logo ScanTrash" width="150">
+  <img src="public/logo.svg" alt="Logo ScanTrash" width="150">
   <h1>ScanTrash</h1>
   <p>Aplikasi Pengelolaan Sampah Berbasis AI</p>
 </div>
