@@ -5,7 +5,7 @@
   <p>Aplikasi Pengelolaan Sampah Berbasis AI</p>
 </div>
 
-ScanTrash adalah project <a href="https://vuejs.org/">vue</a> + <a href="https://tauri.app/">Tauriv2</a>berbasis mobile pencatatan data nasabah tabungan bank sampah disertai adanya fitur scan yang memanfaatkan kecerdasan buatan untuk memilah sampah
+ScanTrash adalah project <a href="https://vuejs.org/">vue</a> + <a href="https://tauri.app/">Tauriv2</a> berbasis mobile pencatatan data nasabah tabungan bank sampah disertai adanya fitur scan yang memanfaatkan kecerdasan buatan untuk memilah sampah
 
 # Inisiasi Project
 
