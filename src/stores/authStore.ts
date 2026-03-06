@@ -1,9 +1,11 @@
 import { defineStore } from "pinia"
+import { auth } from "../firebase"
 import { invoke } from "@tauri-apps/api/core"
-import type { User, LoginCredentials, LoginResponse } from "../types/auth"
+import { signInWithPopup, GoogleAuthProvider, signOut } from "firebase/auth"
+import type { LoginCredentials, LoginResponse } from "../types/auth"
 
 interface AuthState {
-  user: User | null
+  user: any | null
   token: string | null
   loading: boolean
   error: string | null
@@ -48,16 +50,40 @@ export const useAuthStore = defineStore("auth", {
       }
     },
 
-    logout() {
-      this.user = null
-      this.token = null
-      localStorage.removeItem("token")
+    async googleLogin() {
+      this.loading = true
+      this.error = null
+      try {
+        const provider = new GoogleAuthProvider()
+        const result = await signInWithPopup(auth, provider)
+        this.setUser(result.user)
+      } catch (error: any) {
+        this.setError(error.message)
+      } finally {
+        this.loading = false
+      }
+    },
+
+    async logout() {
+      try {
+        await signOut(auth)
+        this.user = null
+        this.token = null
+        localStorage.removeItem("token")
+        this.error = null
+      } catch (error: any) {
+        this.setError(error.message)
+      }
+    },
+
+    setUser(user: any) {
+      this.user = user
       this.error = null
     },
 
-    setToken(token: string) {
-      this.token = token
-      localStorage.setItem("token", token)
-    }
-  }
+    setError(error: string) {
+      this.error = error
+      this.loading = false
+    },
+  },
 })

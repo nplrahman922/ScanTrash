@@ -1,36 +1,69 @@
 <script setup lang="ts">
-import { ref } from 'vue'
+import { getAuth, signInWithPopup, GoogleAuthProvider } from 'firebase/auth'
 import { useAuthStore } from '../stores/authStore'
 import { useRouter } from 'vue-router'
+  
+/* gambar‑gambar dari assets */
+import logo from '../assets/Logo2.svg'
+import googleIcon from '../assets/google.svg'
 
-const email = ref('')
-const password = ref('')
 const authStore = useAuthStore()
 const router = useRouter()
 
 const handleLogin = async () => {
   try {
-    await authStore.login({
-      email: email.value,
-      password: password.value
-    })
-    
+    const auth = getAuth()
+    const provider = new GoogleAuthProvider()
+    const result = await signInWithPopup(auth, provider)
+
+    // Setelah login berhasil, update store dengan user data
+    authStore.setUser(result.user)  // Asumsi authStore punya method setUser
+
     if (authStore.isAuthenticated) {
-      router.push('/')
+      router.push('/')  // Arahkan ke home/dashboard
     }
   } catch (error) {
     console.error('Login error:', error)
+    // Anda bisa set error di store jika perlu
+    authStore.setError(error instanceof Error ? error.message : 'An unknown error occurred')
   }
 }
 </script>
 
 <template>
-  <form @submit.prevent="handleLogin">
-    <input v-model="email" type="email" placeholder="Email" />
-    <input v-model="password" type="password" placeholder="Password" />
-    <button :disabled="authStore.loading">
-      {{ authStore.loading ? 'Loading...' : 'Login' }}
-    </button>
-    <p v-if="authStore.error" class="error">{{ authStore.error }}</p>
-  </form>
+  <div class="min-h-screen flex flex-col items-center justify-center bg-gray-100">
+    <!-- logo di atas card -->
+    <img :src="logo" alt="ScanTrash logo" class="w-32 h-32 mb-8" />
+
+    <!-- card hijau -->
+    <div class="bg-green-500 rounded-xl p-8 w-full max-w-sm text-center shadow-lg">
+      <h1 class="text-white text-2xl font-semibold mb-6">
+        Welcome to ScanTrash
+      </h1>
+
+      <!-- tombol Google -->
+      <button
+        @click="handleLogin"
+        :disabled="authStore.loading"
+        class="flex items-center justify-center bg-white rounded-full px-4 py-2 w-full hover:bg-gray-100 transition-colors"
+      >
+        <img :src="googleIcon" alt="Google" class="w-6 h-6 mr-2" />
+        <span class="text-gray-800 font-medium">
+          {{ authStore.loading ? 'Loading…' : 'Sign in with Google' }}
+        </span>
+      </button>
+
+      <p class="text-white text-sm mt-4">
+        Mari kita mulai untuk menjaga kebersihan bersama!
+      </p>
+
+      <p v-if="authStore.error" class="text-red-200 text-sm mt-2">
+        {{ authStore.error }}
+      </p>
+    </div>
+  </div>
 </template>
+
+<style scoped>
+/* style minimal; mayoritas dikerjakan oleh Tailwind */
+</style>
