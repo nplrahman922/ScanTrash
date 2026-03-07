@@ -8,7 +8,6 @@ pub async fn create_log_command(
     message: String,
     token: String,
 ) -> Result<String, String> {
-    
     // Siapkan struct sesuai format models.rs
     let new_log = LogSystem {
         id: None, // Kosongkan agar UUID di-generate otomatis oleh DB default gen_random_uuid() [cite: 7]

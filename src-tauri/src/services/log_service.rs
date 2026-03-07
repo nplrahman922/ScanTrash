@@ -1,5 +1,5 @@
-use reqwest::Client;
 use crate::models::LogSystem;
+use reqwest::Client;
 use std::env;
 
 pub async fn insert_log_to_supabase(log_data: LogSystem, jwt_token: &str) -> Result<(), String> {
@@ -11,7 +11,8 @@ pub async fn insert_log_to_supabase(log_data: LogSystem, jwt_token: &str) -> Res
     // Endpoint REST API bawaan Supabase untuk insert data
     let url = format!("{}/rest/v1/log_system", supabase_url);
 
-    let res = client.post(&url)
+    let res = client
+        .post(&url)
         .header("apikey", supabase_key)
         .header("Authorization", format!("Bearer {}", jwt_token)) // Kirim token untuk ngelewatin RLS
         .header("Content-Type", "application/json")

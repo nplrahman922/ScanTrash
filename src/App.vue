@@ -1,49 +1,63 @@
-<template>
-  <div class="p-4">
-    <h1 class="text-xl font-bold mb-4">Test Fetch Pricelist</h1>
-    
-    <button 
-      @click="fetchData" 
-      class="bg-blue-500 text-white px-4 py-2 rounded"
-    >
-      Ambil Data Harga
-    </button>
-
-    <div v-if="loading" class="mt-4">Loading...</div>
-    <div v-else-if="error" class="mt-4 text-red-500">Error: {{ error }}</div>
-    
-    <ul v-else-if="pricelist.length > 0" class="mt-4">
-      <li v-for="item in pricelist" :key="item.id" class="border-b py-2">
-        {{ item.labels }} - Rp {{ item.price }}
-      </li>
-    </ul>
-    <div v-else class="mt-4 text-gray-500">Data kosong atau belum di-fetch.</div>
-  </div>
-</template>
-
 <script setup>
-import { ref } from 'vue';
+import { onMounted } from 'vue';
 import { invoke } from '@tauri-apps/api/core';
+import { openUrl } from '@tauri-apps/plugin-opener';
+import { onOpenUrl } from '@tauri-apps/plugin-deep-link';
+import { load } from '@tauri-apps/plugin-store';
 
-const pricelist = ref([]);
-const loading = ref(false);
-const error = ref(null);
-
-async function fetchData() {
-  loading.value = true;
-  error.value = null;
-  
+// Fungsi dipanggil saat tombol "Login Google" diklik
+async function loginWithGoogle() {
   try {
-    // Memanggil Rust tanpa embel-embel token lagi!
-    const result = await invoke('get_pricelist_command');
-    
-    pricelist.value = result;
-    console.log("Data berhasil di-fetch:", result);
-  } catch (err) {
-    error.value = err;
-    console.error("Gagal fetch data:", err);
-  } finally {
-    loading.value = false;
+    const authUrl = await invoke('get_google_auth_url_command');
+    // Gunakan openUrl di sini
+    await openUrl(authUrl); 
+  } catch (error) {
+    console.error("Gagal membuka auth URL:", error);
   }
 }
+
+// Fungsi untuk membedah URL dari Supabase
+async function handleSupabaseCallback(url) {
+  console.log("Deeplink URL masuk:", url);
+  
+  // Supabase mengirim token di bagian hash (#access_token=...)
+  // Kita harus mengekstraknya
+  const hashString = url.split('#')[1];
+  if (!hashString) return;
+
+  const urlParams = new URLSearchParams(hashString);
+  const accessToken = urlParams.get('access_token');
+  const refreshToken = urlParams.get('refresh_token');
+
+  if (accessToken) {
+    console.log("Token berhasil ditangkap!");
+    
+    // Simpan ke Native Persistent Storage
+    const store = await load('session.json', { autoSave: true });
+    await store.set('access_token', accessToken);
+    await store.set('refresh_token', refreshToken);
+    
+    // TODO: Arahkan user ke halaman Dashboard Bank Sampah kamu
+    // misal: router.push('/dashboard');
+  }
+}
+
+onMounted(async () => {
+  await onOpenUrl((urls) => {
+    for (const url of urls) {
+      // Tanpa /callback
+      if (url.startsWith('com.users.scantrash://auth')) {
+        handleSupabaseCallback(url);
+      }
+    }
+  });
+});
 </script>
+
+<template>
+  <div class="p-4">
+    <button @click="loginWithGoogle" class="bg-red-500 text-white p-2 rounded">
+      Login with Google
+    </button>
+  </div>
+</template>
