@@ -1,63 +1,53 @@
 <script setup>
-import { onMounted } from 'vue';
+import { ref, onMounted } from 'vue';
 import { invoke } from '@tauri-apps/api/core';
 import { openUrl } from '@tauri-apps/plugin-opener';
-import { onOpenUrl } from '@tauri-apps/plugin-deep-link';
-import { load } from '@tauri-apps/plugin-store';
+import { listen } from '@tauri-apps/api/event';
 
-// Fungsi dipanggil saat tombol "Login Google" diklik
+const statusText = ref("Sedang mengecek sesi...");
+
 async function loginWithGoogle() {
   try {
+    statusText.value = "Membuka browser...";
     const authUrl = await invoke('get_google_auth_url_command');
-    // Gunakan openUrl di sini
     await openUrl(authUrl); 
   } catch (error) {
-    console.error("Gagal membuka auth URL:", error);
-  }
-}
-
-// Fungsi untuk membedah URL dari Supabase
-async function handleSupabaseCallback(url) {
-  console.log("Deeplink URL masuk:", url);
-  
-  // Supabase mengirim token di bagian hash (#access_token=...)
-  // Kita harus mengekstraknya
-  const hashString = url.split('#')[1];
-  if (!hashString) return;
-
-  const urlParams = new URLSearchParams(hashString);
-  const accessToken = urlParams.get('access_token');
-  const refreshToken = urlParams.get('refresh_token');
-
-  if (accessToken) {
-    console.log("Token berhasil ditangkap!");
-    
-    // Simpan ke Native Persistent Storage
-    const store = await load('session.json', { autoSave: true });
-    await store.set('access_token', accessToken);
-    await store.set('refresh_token', refreshToken);
-    
-    // TODO: Arahkan user ke halaman Dashboard Bank Sampah kamu
-    // misal: router.push('/dashboard');
+    statusText.value = "Error: " + error;
   }
 }
 
 onMounted(async () => {
-  await onOpenUrl((urls) => {
-    for (const url of urls) {
-      // Tanpa /callback
-      if (url.startsWith('com.users.scantrash://auth')) {
-        handleSupabaseCallback(url);
-      }
+  // 1. TANYA LANGSUNG KE BACKEND: "Apakah kamu pegang token?"
+  try {
+    const isLoggedIn = await invoke('check_auth_status_command');
+    if (isLoggedIn) {
+      statusText.value = "Sesi Aktif (Token aman di Backend)!";
+      // router.push('/dashboard');
+    } else {
+      statusText.value = "Belum Login";
     }
+  } catch (err) {
+    console.error("Gagal cek status:", err);
+  }
+
+  // 2. Tetap pasang telinga (buat jaga-jaga kalau HP-nya sangat cepat dan Vite tidak me-refresh UI)
+  await listen('login-success', (event) => {
+    statusText.value = event.payload; 
   });
 });
 </script>
 
 <template>
-  <div class="p-4">
-    <button @click="loginWithGoogle" class="bg-red-500 text-white p-2 rounded">
+  <div class="p-4 flex flex-col gap-4 mt-10">
+    <h1 class="text-2xl font-bold text-center">Aplikasi Bank Sampah</h1>
+    
+    <button @click="loginWithGoogle" class="bg-green-600 hover:bg-green-700 text-white p-3 rounded-lg font-semibold w-full">
       Login with Google
     </button>
+    
+    <div class="p-4 bg-gray-100 rounded-lg border border-gray-300 text-center">
+      <p class="font-bold text-gray-700">Status API:</p>
+      <p class="text-blue-600 font-semibold mt-1">{{ statusText }}</p>
+    </div>
   </div>
 </template>

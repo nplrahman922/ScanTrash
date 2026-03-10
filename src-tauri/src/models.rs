@@ -1,5 +1,5 @@
 use serde::{Deserialize, Serialize};
-
+use std::sync::Mutex;
 use serde_json::Value;
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -24,6 +24,11 @@ pub struct AuthResponse {
     pub access_token: String,
     pub refresh_token: String,
     pub user: Value, // Menyimpan data user dalam bentuk JSON bebas
+}
+
+pub struct AppState {
+    pub access_token: Mutex<Option<String>>,
+    pub refresh_token: Mutex<Option<String>>,
 }
 
 // Kamu bisa tambahkan struct untuk Profiles, Scan, Savings, dll di bawahnya nanti.
