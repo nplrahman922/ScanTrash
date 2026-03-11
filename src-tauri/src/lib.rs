@@ -35,6 +35,7 @@ pub fn run() {
             handlers::pricelist_handler::get_pricelist_command,
             handlers::auth_handler::get_google_auth_url_command,
             handlers::auth_handler::check_auth_status_command,
+            handlers::auth_handler::logout_command,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

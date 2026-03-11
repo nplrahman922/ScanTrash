@@ -35,6 +35,24 @@ onMounted(async () => {
     statusText.value = event.payload; 
   });
 });
+
+async function handleLogout() {
+  try {
+    statusText.value = "Sedang proses logout...";
+    
+    // 1. Perintahkan Rust untuk menghancurkan semua token
+    await invoke('logout_command');
+    
+    // 2. Update UI
+    statusText.value = "Belum Login";
+    
+    // Kalau sudah pakai Vue Router, arahkan ke halaman login:
+    // router.push('/login');
+    
+  } catch (error) {
+    console.error("Gagal logout:", error);
+  }
+}
 </script>
 
 <template>
@@ -45,6 +63,12 @@ onMounted(async () => {
       Login with Google
     </button>
     
+    <div class="p-4 flex flex-col gap-4 mt-10">
+      <button @click="handleLogout" class="bg-red-600 hover:bg-red-700 text-white p-3 rounded-lg font-semibold w-full mt-4">
+        Logout
+      </button>
+    </div>
+
     <div class="p-4 bg-gray-100 rounded-lg border border-gray-300 text-center">
       <p class="font-bold text-gray-700">Status API:</p>
       <p class="text-blue-600 font-semibold mt-1">{{ statusText }}</p>
