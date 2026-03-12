@@ -44,6 +44,35 @@ Dokumentasi lengkap API backend Rust untuk Frontend Vue.js. Backend menggunakan 
 
 ## 🚀 Inisialisasi & Setup
 
+### Pertama-tama buat config.rs di src-tauri/src/config.rs
+Isinya adalah
+
+``` rust
+pub struct AppConfig {
+    pub supabase_url: String,
+    pub supabase_key: String,
+}
+
+impl AppConfig {
+    pub fn init() -> Self {
+        // Coba load .env (hanya berguna saat jalan di Windows/Desktop)
+        dotenvy::dotenv().ok();
+
+        AppConfig {
+            // Gunakan unwrap_or_else agar TIDAK PANIC jika variabel tidak ada.
+            // Sementara kita hardcode fallback-nya untuk testing di Android.
+            // Nanti key-nya sesuaikan dengan yang ada di diagram ERD kamu ya.
+            supabase_url: std::env::var("SUPABASE_URL")
+                .unwrap_or_else(|_| "https://[supabase url kita lihat di group].supabase.co".to_string()),
+
+            supabase_key: std::env::var("SUPABASE_KEY")
+                .unwrap_or_else(|_| "[sb publishable lihat di group juga]".to_string()),
+        }
+    }
+}
+
+```
+
 ### AppState (Brankas Token)
 
 Backend menggunakan `AppState` untuk menyimpan token di RAM dan persistent storage:
