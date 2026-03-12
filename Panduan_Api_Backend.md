@@ -4,47 +4,45 @@ Dokumentasi lengkap API backend Rust untuk Frontend Vue.js. Backend menggunakan 
 
 ---
 
+## 🔄 Changelog - Latest Updates
+
+### Recent Changes (Profile Service & App.vue Pattern)
+
+**Backend: `profile_service.rs` Update**
+- Implementasi `get_user_profile()` sekarang lebih aman dengan auto-filtering by user_id
+- User_id otomatis di-extract dari access token (via `auth_service::get_user_id()`)
+- Query ke Supabase sekarang include filter `user_id=eq.{user_id}` untuk security
+- Response type: **SINGLE OBJECT** (bukan array)
+
+**Frontend: `App.vue` Recommended Pattern**
+- Ditambahkan `isLoading` state untuk prevent UI flickering
+- Function `fetchProfileAndRoute()` untuk reusable logic
+- Better error handling & proper loading state management
+- Role-based routing (admin vs user dashboard)
+
+**Frontend Checklist:**
+- [ ] Treat `get_profile_command` response sebagai **single object**, bukan array
+- [ ] Gunakan loading state di semua async operations
+- [ ] Implement role-based routing untuk redirect yang tepat
+- [ ] Listen `login-success` event dari deep link OAuth
+- [ ] Jangan pernah send `user_id` parameter - backend handle otomatis
+- [ ] Never store token di frontend - backend manage semua
+
+---
+
 ## 📋 Table of Contents
 
-1. [Inisialisasi & Setup](#inisialisasi--setup)
-2. [Authentication Flow](#authentication-flow)
-3. [Available Commands](#available-commands)
-4. [Data Models](#data-models)
-5. [Error Handling](#error-handling)
-6. [Best Practices](#best-practices)
+1. [Changelog](#changelog---latest-updates) ← **LIHAT DULU!**
+2. [Inisialisasi & Setup](#inisialisasi--setup)
+3. [Authentication Flow](#authentication-flow)
+4. [Available Commands](#available-commands)
+5. [Data Models](#data-models)
+6. [Error Handling](#error-handling)
+7. [Best Practices](#best-practices)
 
 ---
 
 ## 🚀 Inisialisasi & Setup
-
-### Pertama-tama buat config.rs di src-tauri/src/config.rs
-Isinya adalah
-
-``` rust
-pub struct AppConfig {
-    pub supabase_url: String,
-    pub supabase_key: String,
-}
-
-impl AppConfig {
-    pub fn init() -> Self {
-        // Coba load .env (hanya berguna saat jalan di Windows/Desktop)
-        dotenvy::dotenv().ok();
-
-        AppConfig {
-            // Gunakan unwrap_or_else agar TIDAK PANIC jika variabel tidak ada.
-            // Sementara kita hardcode fallback-nya untuk testing di Android.
-            // Nanti key-nya sesuaikan dengan yang ada di diagram ERD kamu ya.
-            supabase_url: std::env::var("SUPABASE_URL")
-                .unwrap_or_else(|_| "https://[supabase url kita lihat di group].supabase.co".to_string()),
-
-            supabase_key: std::env::var("SUPABASE_KEY")
-                .unwrap_or_else(|_| "[sb publishable lihat di group juga]".to_string()),
-        }
-    }
-}
-
-```
 
 ### AppState (Brankas Token)
 
@@ -227,7 +225,7 @@ try {
 
 **Parameter:** Tidak ada (Token otomatis diambil dari storage)
 
-**Return:** `Result<Profile, String>`
+**Return:** `Result<Profile, String>` - Return SINGLE OBJECT langsung, bukan array
 
 **Struktur Profile:**
 ```typescript
@@ -247,6 +245,7 @@ interface Profile {
 try {
   const profile = await invoke('get_profile_command');
   console.log("Profile user:", profile);
+  // ✅ Backend return SINGLE OBJECT (bukan array)
   // {
   //   user_id: "uuid-xxx",
   //   email: "user@gmail.com",
@@ -256,12 +255,25 @@ try {
   //   status: "active",
   //   created_at: "2025-01-01T10:00:00Z"
   // }
+  
+  // ✅ Frontend bisa langsung akses properties
+  console.log(profile.username);  // "john_doe"
+  console.log(profile.role);      // "user"
 } catch (error) {
   console.error("Error fetching profile:", error);
 }
 ```
 
-**Requirement:** User harus sudah login (ada valid token)
+**Requirement:** 
+- User harus sudah login (ada valid token)
+- Backend otomatis filter berdasarkan `user_id` yang ada di token
+- Hanya profile user yang sedang login yang akan dikembalikan
+
+**Backend Logic:**
+1. Extract `user_id` dari access token
+2. Query `profiles` table dengan filter `user_id=eq.{user_id}`
+3. Gunakan header `Accept: application/vnd.pgrst.object+json` untuk return single object
+4. Return Profile object langsung (bukan array)
 
 ---
 
@@ -361,7 +373,8 @@ interface LogSystem {
 }
 ```
 
-#### 2. **Profile** (Tabel: `profiles`)
+#### 2. **Profile** (Tabel: `profiles`) - Auto-filtered by user_id
+
 ```typescript
 interface Profile {
   user_id: string;
@@ -373,6 +386,13 @@ interface Profile {
   created_at?: string;
 }
 ```
+
+**⚠️ PENTING:** Saat call `get_profile_command`:
+- Backend otomatis extract `user_id` dari token
+- Hanya profile dengan user_id yang sesuai yang dikembalikan
+- Frontend tidak perlu kirim user_id sebagai parameter
+- Return tipe adalah SINGLE OBJECT, bukan array
+- Bisa langsung akses: `profile.username`, `profile.role`, etc
 
 #### 3. **Scan** (Tabel: `scan`)
 ```typescript
@@ -473,18 +493,33 @@ beforeEach(async (to, from, next) => {
 })
 ```
 
-### 2. **Load Profile setelah Login**
+### 2. **Load Profile setelah Login (dengan Loading State)**
 
 ```typescript
 // Setelah berhasil login
+const isLoading = ref(true);
+
 listen('login-success', async () => {
   try {
+    isLoading.value = true;  // Nyalakan loading spinner
     const profile = await invoke('get_profile_command');
+    // Profile adalah SINGLE OBJECT, bukan array
+    console.log("Nama:", profile.username);  // Bisa akses langsung
+    
     // Simpan ke Pinia/Vuex store
     userStore.setProfile(profile);
-    router.push('/home');
+    
+    // Redirect berdasarkan role
+    if (profile.role === 'admin') {
+      router.push('/admin-dashboard');
+    } else {
+      router.push('/user-dashboard');
+    }
   } catch (error) {
     console.error("Error loading profile:", error);
+    showToast("Gagal mengambil profil, silakan login ulang");
+  } finally {
+    isLoading.value = false;  // Matikan loading spinner
   }
 });
 ```
@@ -515,26 +550,66 @@ async function scanItem(label: string) {
 }
 ```
 
-### 5. **Auto-Check Auth saat App Load**
+### 5. **Auto-Check Auth saat App Load (Recommended Pattern)**
+
+Gunakan pattern seperti di App.vue untuk better UX:
 
 ```typescript
-// App.vue atau main setup
+// App.vue
+import { ref, onMounted } from 'vue';
+import { invoke } from '@tauri-apps/api/core';
+import { listen } from '@tauri-apps/api/event';
+
+const isLoading = ref(true);
+const userProfile = ref(null);
+
+async function fetchProfileAndRoute() {
+  try {
+    const profile = await invoke('get_profile_command');
+    userProfile.value = profile;  // Profile adalah SINGLE OBJECT
+    
+    // Redirect berdasarkan role
+    if (profile.role === 'admin') {
+      router.push('/admin-dashboard');
+    } else {
+      router.push('/user-dashboard');
+    }
+  } catch (err) {
+    console.error("Profile Error:", err);
+  } finally {
+    isLoading.value = false;  // PENTING: matikan loading
+  }
+}
+
 onMounted(async () => {
   try {
+    isLoading.value = true;  // Nyalakan loading saat check auth
     const isLoggedIn = await invoke('check_auth_status_command');
+    
     if (isLoggedIn) {
-      // Load user profile
-      const profile = await invoke('get_profile_command');
-      userStore.setProfile(profile);
-      router.push('/home');
+      await fetchProfileAndRoute();
     } else {
+      isLoading.value = false;
       router.push('/login');
     }
-  } catch (error) {
+  } catch (err) {
+    isLoading.value = false;
     router.push('/login');
   }
+
+  // Listen event login-success dari deep link
+  listen('login-success', async () => {
+    isLoading.value = true;
+    await fetchProfileAndRoute();
+  });
 });
 ```
+
+**Kenapa pattern ini penting:**
+- Loading state mencegah UI flickering
+- Proper error handling jika profile gagal diambil
+- Better UX dengan loading indicator
+- Prevent race condition dengan listen event
 
 ### 6. **Never Store Token di Frontend**
 
