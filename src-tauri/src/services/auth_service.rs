@@ -103,3 +103,27 @@ pub async fn get_user_id(access_token: &str) -> Result<String, String> {
     
     Err("Sesi tidak valid atau User ID tidak ditemukan".to_string())
 }
+
+pub fn parse_tokens_from_url(url: &str) -> Option<(String, String)> {
+    if !url.starts_with("com.users.scantrash://auth") {
+        return None;
+    }
+
+    let hash_part = url.split('#').nth(1).unwrap_or("");
+    let mut access_token = String::new();
+    let mut refresh_token = String::new();
+
+    for pair in hash_part.split('&') {
+        let mut kv = pair.split('=');
+        if let (Some(k), Some(v)) = (kv.next(), kv.next()) {
+            if k == "access_token" { access_token = v.to_string(); }
+            if k == "refresh_token" { refresh_token = v.to_string(); }
+        }
+    }
+
+    if !access_token.is_empty() && !refresh_token.is_empty() {
+        Some((access_token, refresh_token))
+    } else {
+        None
+    }
+}
