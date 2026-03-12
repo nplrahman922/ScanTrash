@@ -79,3 +79,27 @@ pub async fn logout_from_server(access_token: &str) {
     // Kita abaikan responsenya (entah sukses atau gagal di server, 
     // yang penting aplikasi kita tetap membuang token di HP)
 }
+
+pub async fn get_user_id(access_token: &str) -> Result<String, String> {
+    let config = crate::config::AppConfig::init();
+    let client = reqwest::Client::new();
+    let url = format!("{}/auth/v1/user", config.supabase_url);
+
+    let res = client.get(&url)
+        .header("apikey", &config.supabase_key)
+        .header("Authorization", format!("Bearer {}", access_token))
+        .send()
+        .await
+        .map_err(|e| format!("Gagal menghubungi Supabase: {}", e))?;
+
+    if res.status().is_success() {
+        let body: serde_json::Value = res.json().await.map_err(|e| e.to_string())?;
+        
+        // Ambil ID dari response JSON
+        if let Some(id) = body["id"].as_str() {
+            return Ok(id.to_string());
+        }
+    }
+    
+    Err("Sesi tidak valid atau User ID tidak ditemukan".to_string())
+}

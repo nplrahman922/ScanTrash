@@ -52,6 +52,13 @@ pub async fn check_auth_status_command(
 
     // 4. Ping Supabase
     let is_valid = crate::services::auth_service::validate_token(&access_token).await;
+    // dont forget to remove!!!!!!!!!!!!!!!
+    println!("\n=====================================================");
+    println!("🔑 [DEBUG] ACCESS TOKEN BARU:");
+    println!("{}\n", access_token);
+    println!("🔄 [DEBUG] REFRESH TOKEN BARU:");
+    println!("{}", refresh_token);
+    println!("=====================================================\n");
     
     if is_valid {
         println!("✅ [RUST] Token divalidasi dan masih hidup!");
@@ -118,6 +125,15 @@ pub fn init_deep_link_listener(app_handle: AppHandle) {
 
                 if !access_token.is_empty() {
                     // KITA CLONE DATA UNTUK DIBAWA KE BACKGROUND TASK
+                    
+                    // dont forget to remove!!!!!!!!!!!!!!!
+                    println!("\n=====================================================");
+                    println!("🔑 [DEBUG] ACCESS TOKEN BARU:");
+                    println!("{}\n", access_token);
+                    println!("🔄 [DEBUG] REFRESH TOKEN BARU:");
+                    println!("{}", refresh_token);
+                    println!("=====================================================\n");
+
                     let bg_handle = handle_clone.clone();
                     let bg_access = access_token.clone();
                     let bg_refresh = refresh_token.clone();
@@ -127,7 +143,7 @@ pub fn init_deep_link_listener(app_handle: AppHandle) {
                         // 1. Simpan ke RAM
                         let state = bg_handle.state::<AppState>();
                         *state.access_token.lock().unwrap() = Some(bg_access.clone());
-                        *state.refresh_token.lock().unwrap() = Some(bg_refresh.clone());
+                        *state.refresh_token.lock().unwrap() = Some(bg_refresh.clone());    
 
                         // 2. Simpan ke Disk secara aman di luar Main Thread
                         if let Ok(store) = bg_handle.store("session.json") {
