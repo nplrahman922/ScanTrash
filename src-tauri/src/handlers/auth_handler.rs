@@ -1,6 +1,6 @@
 use tauri::{Emitter};
 use tauri_plugin_deep_link::DeepLinkExt;
-use crate::services::{auth_service, session_service};
+use crate::services::{auth_service, session_service, log_service};
 
 #[tauri::command]
 pub fn get_google_auth_url_command() -> String {
@@ -70,6 +70,8 @@ pub fn init_deep_link_listener(app_handle: tauri::AppHandle) {
                     // Simpan pakai Service
                     session_service::save_session(&bg_handle, &access_token, &refresh_token);
                     println!("💾 [RUST] Token berhasil diamankan ke Persistent Storage!");
+                    
+                    let _ = log_service::insert_log_to_supabase("INFO", "User berhasil login ke aplikasi melalui Google OAuth.", &access_token).await;
 
                     // Kirim sinyal ke Vue
                     if let Err(e) = bg_handle.emit("login-success", "Login tervalidasi di backend!") {
@@ -86,15 +88,18 @@ pub async fn logout_command(app_handle: tauri::AppHandle) -> Result<(), String> 
     // 1. Ambil token lama sebelum dihapus
     let (access_opt, _) = session_service::get_session(&app_handle);
 
-    // 2. Suruh gudang sapu bersih
+    if let Some(token) = &access_opt {
+    
+    // [LOG SYSTEM] Cukup 1 baris ini saja! Service yang akan mengurus sisanya.
+    let _ = log_service::insert_log_to_supabase("INFO", "User secara sadar melakukan logout dari perangkat.", token).await;
+
+    auth_service::logout_from_server(token).await;
+    println!("🔌 [RUST] Sesi dimatikan dari server Supabase.");
+    }
+
+    // 4. Suruh gudang sapu bersih
     session_service::clear_session(&app_handle);
     println!("🗑️ [RUST] Token berhasil dihapus dari Disk dan RAM!");
-
-    // 3. Lapor ke Supabase
-    if let Some(token) = access_opt {
-        auth_service::logout_from_server(&token).await;
-        println!("🔌 [RUST] Sesi dimatikan dari server Supabase.");
-    }
 
     Ok(())
 }
