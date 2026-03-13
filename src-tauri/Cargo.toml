@@ -1,8 +1,8 @@
 [package]
 name = "scantrash"
 version = "0.1.0"
-description = "A Tauri App"
-authors = ["you"]
+description = "Aplikasi Pendeteksi Nilai Jual Sebuah Sampah, Untuk Bank Sampah"
+authors = ["Insos Tim"]
 edition = "2021"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
@@ -22,4 +22,9 @@ tauri = { version = "2", features = [] }
 tauri-plugin-opener = "2"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
+dotenvy = "0.15.7"
+tauri-plugin-shell = "2.3.5"
+reqwest = { version = "0.11", default-features = false, features = ["json", "rustls-tls-webpki-roots"] }
+tauri-plugin-store = "2"
+tauri-plugin-deep-link = "2"
 

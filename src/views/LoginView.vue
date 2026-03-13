@@ -1,30 +1,18 @@
 <script setup lang="ts">
-import { getAuth, signInWithPopup, GoogleAuthProvider } from 'firebase/auth'
 import { useAuthStore } from '../stores/authStore'
-import { useRouter } from 'vue-router'
   
 /* gambar‑gambar dari assets */
 import logo from '../assets/Logo2.svg'
 import googleIcon from '../assets/google.svg'
 
 const authStore = useAuthStore()
-const router = useRouter()
 
 const handleLogin = async () => {
   try {
-    const auth = getAuth()
-    const provider = new GoogleAuthProvider()
-    const result = await signInWithPopup(auth, provider)
-
-    // Setelah login berhasil, update store dengan user data
-    authStore.setUser(result.user)  // Asumsi authStore punya method setUser
-
-    if (authStore.isAuthenticated) {
-      router.push('/')  // Arahkan ke home/dashboard
-    }
+    await authStore.googleLogin()
+    // Auth store akan handle redirect setelah login success
   } catch (error) {
     console.error('Login error:', error)
-    // Anda bisa set error di store jika perlu
     authStore.setError(error instanceof Error ? error.message : 'An unknown error occurred')
   }
 }

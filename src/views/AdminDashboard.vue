@@ -1,0 +1,61 @@
+<template>
+  <div class="min-h-screen bg-gray-50 p-4">
+    <div class="max-w-md mx-auto">
+      <div class="bg-white rounded-xl p-6 shadow-md mb-6">
+        <h1 class="text-2xl font-bold text-gray-800 mb-4">Dashboard Admin</h1>
+        <p class="text-gray-600 mb-4">Panel administrasi ScanTrash</p>
+
+        <div class="space-y-4">
+          <div class="bg-red-50 p-4 rounded-lg">
+            <h3 class="font-semibold text-red-800">Kelola Pricelist</h3>
+            <p class="text-red-600 text-sm">Update harga sampah dan kategori</p>
+          </div>
+
+          <div class="bg-yellow-50 p-4 rounded-lg">
+            <h3 class="font-semibold text-yellow-800">Laporan Sistem</h3>
+            <p class="text-yellow-600 text-sm">Lihat log aktivitas dan laporan</p>
+          </div>
+
+          <div class="bg-indigo-50 p-4 rounded-lg">
+            <h3 class="font-semibold text-indigo-800">Manajemen User</h3>
+            <p class="text-indigo-600 text-sm">Kelola pengguna dan izin akses</p>
+          </div>
+
+          <div class="bg-teal-50 p-4 rounded-lg">
+            <h3 class="font-semibold text-teal-800">Statistik Aplikasi</h3>
+            <p class="text-teal-600 text-sm">Lihat statistik penggunaan aplikasi</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Profile Info -->
+      <div v-if="authStore.userProfile" class="bg-white rounded-xl p-6 shadow-md">
+        <h2 class="text-xl font-bold text-gray-800 mb-4">Informasi Admin</h2>
+        <div class="flex items-center space-x-4">
+          <img
+            v-if="authStore.userProfile.photo_url"
+            :src="authStore.userProfile.photo_url"
+            alt="Profile"
+            class="w-16 h-16 rounded-full border-2 border-purple-500"
+          />
+          <div v-else class="w-16 h-16 rounded-full bg-gray-300 flex items-center justify-center">
+            <span class="text-2xl">👑</span>
+          </div>
+          <div>
+            <p class="font-semibold text-gray-800">{{ authStore.userProfile.username }}</p>
+            <p class="text-gray-600 text-sm">{{ authStore.userProfile.email }}</p>
+            <span class="inline-block mt-1 px-2 py-1 text-xs font-bold rounded-full bg-purple-100 text-purple-700">
+              {{ authStore.userProfile.role }}
+            </span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</template>
+
+<script setup lang="ts">
+import { useAuthStore } from '../stores/authStore'
+
+const authStore = useAuthStore()
+</script>
