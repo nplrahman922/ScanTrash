@@ -5,11 +5,10 @@ use serde_json::Value;
 // 1. Service Generator URL Google Auth
 pub fn generate_google_auth_url() -> String {
     let config = crate::config::AppConfig::init();
-
-    // Redirect URL harus sesuai scheme deep-link yang didaftarkan.
-    // Pastikan di Supabase settings redirect URL juga terdaftar: scantrash://oauth
+    
+    // Tanpa /callback
     format!(
-        "{}/auth/v1/authorize?provider=google&prompt=consent&redirect_to=scantrash://oauth",
+        "{}/auth/v1/authorize?provider=google&prompt=consent&redirect_to=com.users.scantrash://auth", 
         config.supabase_url
     )
 }
@@ -106,45 +105,25 @@ pub async fn get_user_id(access_token: &str) -> Result<String, String> {
 }
 
 pub fn parse_tokens_from_url(url: &str) -> Option<(String, String)> {
-    println!("🔍 [RUST] Parsing URL: {}", url);
-
-    // Sertakan dua format yang mungkin muncul saat redirect:
-    // 1) scantrash://oauth?access_token=...&refresh_token=...
-    // 2) scantrash://oauth#access_token=...&refresh_token=...
-    if !url.starts_with("scantrash://oauth") {
-        println!("❌ [RUST] URL tidak dimulai dengan scheme yang benar (scantrash://oauth)");
+    if !url.starts_with("com.users.scantrash://auth") {
         return None;
     }
 
-    // Ambil bagian yang berisi token, bisa setelah '?' atau '#'
-    let token_part = url.split(['?', '#']).nth(1).unwrap_or("");
-    if token_part.is_empty() {
-        println!("❌ [RUST] Tidak menemukan token di URL (tidak ada query atau fragment)");
-        return None;
-    }
-
+    let hash_part = url.split('#').nth(1).unwrap_or("");
     let mut access_token = String::new();
     let mut refresh_token = String::new();
 
-    for pair in token_part.split('&') {
+    for pair in hash_part.split('&') {
         let mut kv = pair.split('=');
         if let (Some(k), Some(v)) = (kv.next(), kv.next()) {
-            if k == "access_token" {
-                access_token = v.to_string();
-                println!("✅ [RUST] Found access_token");
-            }
-            if k == "refresh_token" {
-                refresh_token = v.to_string();
-                println!("✅ [RUST] Found refresh_token");
-            }
+            if k == "access_token" { access_token = v.to_string(); }
+            if k == "refresh_token" { refresh_token = v.to_string(); }
         }
     }
 
     if !access_token.is_empty() && !refresh_token.is_empty() {
-        println!("✅ [RUST] Token parsing berhasil");
         Some((access_token, refresh_token))
     } else {
-        println!("❌ [RUST] Token tidak lengkap - access: {}, refresh: {}", !access_token.is_empty(), !refresh_token.is_empty());
         None
     }
 }

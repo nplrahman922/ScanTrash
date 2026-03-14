@@ -59,7 +59,7 @@ pub fn init_deep_link_listener(app_handle: tauri::AppHandle) {
 
             // 1. Serahkan tugas membedah URL ke Service!
             if let Some((access_token, refresh_token)) = auth_service::parse_tokens_from_url(&url) {
-
+                
                 // Print Debug
                 println!("\n🔑 [DEBUG] ACCESS TOKEN BARU:\n{}\n", access_token);
 
@@ -70,20 +70,14 @@ pub fn init_deep_link_listener(app_handle: tauri::AppHandle) {
                     // Simpan pakai Service
                     session_service::save_session(&bg_handle, &access_token, &refresh_token);
                     println!("💾 [RUST] Token berhasil diamankan ke Persistent Storage!");
-
-                    // Log dengan error handling
-                    let log_result = log_service::insert_log_to_supabase("INFO", "User berhasil login ke aplikasi melalui Google OAuth.", &access_token).await;
-                    if let Err(e) = log_result {
-                        println!("⚠️ [RUST] Gagal mencatat log: {}", e);
-                    }
+                    
+                    let _ = log_service::insert_log_to_supabase("INFO", "User berhasil login ke aplikasi melalui Google OAuth.", &access_token).await;
 
                     // Kirim sinyal ke Vue
                     if let Err(e) = bg_handle.emit("login-success", "Login tervalidasi di backend!") {
                         println!("⚠️ [RUST] UI belum siap menerima sinyal... Error: {}", e);
                     }
                 });
-            } else {
-                println!("⚠️ [RUST] URL tidak valid atau tidak mengandung token: {}", url);
             }
         }
     });

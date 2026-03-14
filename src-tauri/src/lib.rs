@@ -21,16 +21,11 @@ pub fn run() {
         .plugin(tauri_plugin_store::Builder::new().build())
         // 2. Hapus underscore (_) pada app karena sekarang kita menggunakannya
         .setup(|app| {
-            println!("🚀 [RUST] Starting app setup...");
-
             let _app_config = config::AppConfig::init();
-            println!("✅ [RUST] Config loaded successfully");
-
+            
             // 3. Pasang telinga (listener) deeplink di background
             crate::handlers::auth_handler::init_deep_link_listener(app.handle().clone());
-            println!("✅ [RUST] Deep link listener initialized");
-
-            println!("✅ [RUST] App setup completed successfully");
+            
             Ok(())
         })
         .plugin(tauri_plugin_shell::init())
