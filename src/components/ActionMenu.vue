@@ -40,35 +40,25 @@
         <div class="h-px bg-gray-300 my-5"></div>
 
         <!-- Logout Button -->
-        <button class="py-4 px-5 bg-none border-none text-red-500 text-base font-semibold cursor-pointer text-left hover:bg-gray-100 transition-colors" @click="handleLogout">Log Out</button>
+        <LogoutButton />
       </nav>
     </div>
   </div>
 </template>
 
-<script lang="ts">
-export default {
-  name: 'ActionMenu',
-  data() {
-    return {
-      isSidebarOpen: false,
-    };
-  },
-  methods: {
-    toggleSidebar() {
-      this.isSidebarOpen = !this.isSidebarOpen;
-    },
-    closeSidebar() {
-      this.isSidebarOpen = false;
-    },
-    handleLogout() {
-      this.closeSidebar();
-      // Tambahkan logika logout di sini
-      console.log('User logged out');
-      // this.$router.push('/login'); // Uncomment jika menggunakan router
-    },
-  },
-};
+<script setup lang="ts">
+import { ref } from "vue"
+import LogoutButton from "../components/LogoutButton.vue"
+
+const isSidebarOpen = ref(false)
+
+const toggleSidebar = () => {
+  isSidebarOpen.value = !isSidebarOpen.value
+}
+
+const closeSidebar = () => {
+  isSidebarOpen.value = false
+}
 </script>
 
 <style scoped>
