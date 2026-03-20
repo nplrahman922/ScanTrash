@@ -1,263 +1,212 @@
 # ScanTrash Backend API Documentation
 
-Dokumentasi lengkap API backend Rust untuk Frontend Vue.js. Backend menggunakan **Tauri v2** dengan **Supabase** sebagai database.
+Dokumentasi lengkap untuk Frontend Team - Semua command/invoke yang perlu digunakan untuk integrasi dengan backend Rust Tauri.
 
----
+**Stack:** Rust + Tauri v2 + Supabase PostgreSQL
 
-## 🔄 Changelog - Latest Updates
-
-### Recent Changes (Profile Service & App.vue Pattern)
-
-**Backend: `profile_service.rs` Update**
-- Implementasi `get_user_profile()` sekarang lebih aman dengan auto-filtering by user_id
-- User_id otomatis di-extract dari access token (via `auth_service::get_user_id()`)
-- Query ke Supabase sekarang include filter `user_id=eq.{user_id}` untuk security
-- Response type: **SINGLE OBJECT** (bukan array)
-
-**Frontend: `App.vue` Recommended Pattern**
-- Ditambahkan `isLoading` state untuk prevent UI flickering
-- Function `fetchProfileAndRoute()` untuk reusable logic
-- Better error handling & proper loading state management
-- Role-based routing (admin vs user dashboard)
-
-**Frontend Checklist:**
-- [ ] Treat `get_profile_command` response sebagai **single object**, bukan array
-- [ ] Gunakan loading state di semua async operations
-- [ ] Implement role-based routing untuk redirect yang tepat
-- [ ] Listen `login-success` event dari deep link OAuth
-- [ ] Jangan pernah send `user_id` parameter - backend handle otomatis
-- [ ] Never store token di frontend - backend manage semua
-
----
-
-## 📋 Table of Contents
-
-1. [Changelog](#changelog---latest-updates) ← **LIHAT DULU!**
-2. [Inisialisasi & Setup](#inisialisasi--setup)
-3. [Authentication Flow](#authentication-flow)
-4. [Available Commands](#available-commands)
-5. [Data Models](#data-models)
-6. [Error Handling](#error-handling)
-7. [Best Practices](#best-practices)
-
----
-
-## 🚀 Inisialisasi & Setup
-
-### Pertama-tama buat config.rs di src-tauri/src/config.rs
-Isinya adalah
-
-``` rust
-pub struct AppConfig {
-    pub supabase_url: String,
-    pub supabase_key: String,
-}
-
-impl AppConfig {
-    pub fn init() -> Self {
-        // Coba load .env (hanya berguna saat jalan di Windows/Desktop)
-        dotenvy::dotenv().ok();
-
-        AppConfig {
-            // Gunakan unwrap_or_else agar TIDAK PANIC jika variabel tidak ada.
-            // Sementara kita hardcode fallback-nya untuk testing di Android.
-            // Nanti key-nya sesuaikan dengan yang ada di diagram ERD kamu ya.
-            supabase_url: std::env::var("SUPABASE_URL")
-                .unwrap_or_else(|_| "https://[supabase url kita lihat di group].supabase.co".to_string()),
-
-            supabase_key: std::env::var("SUPABASE_KEY")
-                .unwrap_or_else(|_| "[sb publishable lihat di group juga]".to_string()),
-        }
-    }
-}
-
-```
-
-### AppState (Brankas Token)
-
-Backend menggunakan `AppState` untuk menyimpan token di RAM dan persistent storage:
-
-```rust
-pub struct AppState {
-    pub access_token: Mutex<Option<String>>,
-    pub refresh_token: Mutex<Option<String>>,
-}
-```
-
-**Token disimpan di dua tempat:**
-- **RAM**: Akses cepat, hilang saat app ditutup
-- **Disk**: Menggunakan Tauri's built-in store plugin, persistent
-
-Jangan khawatir tentang token management di frontend - backend menangani auto-refresh dan penyimpanan otomatis.
-
----
-
-## 🔐 Authentication Flow
-
-### 1. **Login dengan Google OAuth**
-
-#### Step 1: Dapatkan URL Google Auth
-```typescript
-// Frontend Vue.js
-import { invoke } from '@tauri-apps/api/core';
-
-const authUrl = await invoke('get_google_auth_url_command');
-// Buka authUrl di browser
-window.open(authUrl, '_blank');
-```
-
-#### Step 2: Backend menerima Deep Link
-Setelah user login di Google, OAuth redirect ke deep link:
-```
-scantrash://oauth?access_token=xxx&refresh_token=yyy
-```
-
-Backend otomatis:
-- Parsing token dari URL
-- Menyimpan ke RAM & Disk
-- Emit event `login-success` ke frontend
-
-#### Step 3: Frontend listen event login-success
-```typescript
-import { listen } from '@tauri-apps/api/event';
-
-listen('login-success', (event) => {
-  console.log("Login berhasil!", event.payload);
-  // Redirect ke home page
-});
+## Sebelum Memulai Buat .env dulu yagesya
+buat di Scantrash/.env
+``` bash
+SUPABASE_URL=url di group
+SUPABASE_KEY=kunci juga di group
+SESSION_SECRET_KEY=Sc4nTr4sh_S3cur3_K3y_2026_Atau_Apapun_Bebas
 ```
 
 ---
 
-### 2. **Check Auth Status (dengan Auto-Refresh)**
+## 📋 Quick Reference - Semua Commands
 
-```typescript
-const isAuthenticated = await invoke('check_auth_status_command');
-
-if (isAuthenticated) {
-  console.log("✅ User sudah login");
-} else {
-  console.log("❌ User belum login");
-}
-```
-
-**Apa yang terjadi di backend:**
-1. ✅ Ambil token dari storage
-2. ✅ Validasi token ke Supabase
-3. ✅ Jika expired → auto-refresh token otomatis
-4. ✅ Return `true` jika token valid, `false` jika gagal
-5. ✅ Token baru otomatis disimpan (tanpa action dari frontend)
-
-**Frontend tidak perlu khawatir** tentang token refresh - backend menangani semuanya!
+| Command | Fungsi | Auth Required | Return Type |
+|---------|--------|---------------|------------|
+| `get_google_auth_url_command` | Dapatkan URL login Google | ❌ Tidak | `String` (OAuth URL) |
+| `check_auth_status_command` | Cek user sudah login atau tidak | ❌ Tidak | `bool` |
+| `get_profile_command` | Ambil profile user yang login | ✅ Ya | `Profile` (single object) |
+| `logout_command` | Logout user | ✅ Ya | `()` |
+| `get_pricelist_command` | Ambil daftar harga sampah | ✅ Ya | `Vec<Pricelist>` (array) |
+| `create_log_command` | Log aktivitas user secara online dan disimpan di supabase | ✅ Ya | `()` |
+| `write_local_log_command` | Log aktivitas user secara lokal | ❌ Tidak | `()` |
 
 ---
 
-### 3. **Logout**
+## 🔐 Authentication Flow (Alur Lengkap)
 
-```typescript
-await invoke('logout_command');
-// Token otomatis dihapus dari RAM & Disk
-// Frontend bisa langsung redirect ke login page
+### Flow Diagram
 ```
+┌─────────────────────────────────────────────────────────────────┐
+│                      APP START                                  │
+│                    (App.vue mounted)                            │
+└────────────────────────┬────────────────────────────────────────┘
+                         │
+                         ▼
+┌─────────────────────────────────────────────────────────────────┐
+│  1. check_auth_status_command() - Cek sudah ada token?          │
+│     (Sebelum render apapun, check dulu)                         │
+└────────────────────────┬────────────────────────────────────────┘
+                         │
+                    ┌────┴─────┐
+                    │           │
+              YA (true)      TIDAK (false)
+                    │           │
+        ┌───────────▼───┐     ┌──▼───────────────┐
+        │ 2. get_profile|     │Redirect ke /login│
+        │    _command() |     │                  │
+        └───────────┬───┘     └──────────────────┘
+                    │
+                    ▼
+        ┌──────────────────────────┐
+        │ Profile Loaded! Simpan   │
+        │ ke store (user data)     │
+        └──────────────┬───────────┘
+                       │
+                       ▼
+        ┌──────────────────────────┐
+        │ Redirect ke Dashboard    │
+        │ (berdasarkan role)       │
+        └──────────────────────────┘
 
-**Apa yang terjadi di backend:**
-1. Hapus token dari RAM
-2. Hapus token dari Disk
-3. Notifikasi ke Supabase untuk matikan sesi
+┌──────────────────────────────────────────────────────────────┐
+│              USER KLIK LOGIN WITH GOOGLE BUTTON              │
+├──────────────────────────────────────────────────────────────┤
+│ 1. invoke('get_google_auth_url_command')                     │
+│    → Dapat URL: https://...                                  │
+│ 2. Buka URL (browser/webview)                                │
+│ 3. User login & authorize                                    │
+│ 4. Google redirect ke deep link:                             |
+| com.users.scantrash://auth?access_token=xxx&refresh_token=yyy│
+│ 5. Backend intercept → tukar code dgn token → simpan token   │
+│ 6. Emit event 'login-success'                                │
+│ 7. Frontend listen event → call get_profile_command()        │
+└──────────────────────────────────────────────────────────────┘
+
+┌──────────────────────────────────────────────────────────────┐
+│              USER KLIK LOGOUT BUTTON                         │
+├──────────────────────────────────────────────────────────────┤
+│ 1. invoke('logout_command')                                  │
+│    → Delete token dari storage                               │
+│    → Hapus profile dari store                                │
+│ 2. Redirect ke /login                                        │
+└──────────────────────────────────────────────────────────────┘
+```
 
 ---
 
-## 📡 Available Commands
-
-Semua command dipanggil dari Frontend dengan syntax:
-```typescript
-import { invoke } from '@tauri-apps/api/core';
-
-const result = await invoke('command_name', { param: value });
-```
-
----
+## 🔧 Command Details
 
 ### 1️⃣ `get_google_auth_url_command`
 
-**Tujuan:** Generate URL untuk Google OAuth
+**Fungsi:** Mendapatkan URL untuk login dengan Google OAuth
 
 **Parameter:** Tidak ada
 
-**Return:** `String` (URL Google Auth)
+**Return Type:** `String`
 
-**Contoh:**
-```typescript
-const authUrl = await invoke('get_google_auth_url_command');
-window.open(authUrl, '_blank');
+**Response:** URL OAuth Google yang siap dibuka di browser
 ```
+https://accounts.google.com/o/oauth2/v2/auth?client_id=...&redirect_uri=...&scope=...
+```
+
+**Kapan digunakan:** Ketika user klik tombol "Login dengan Google"
+
+**Code Example:**
+```typescript
+import { invoke } from '@tauri-apps/api/core';
+
+async function handleGoogleLogin() {
+  try {
+    const authUrl = await invoke<string>('get_google_auth_url_command');
+    console.log("Auth URL:", authUrl);
+    
+    // Buka URL di browser/webview
+    window.location.href = authUrl;
+    
+    // ATAU buka di webview baru
+    // const webview = new WebviewWindow('auth', { url: authUrl });
+  } catch (error) {
+    console.error("Error mendapatkan auth URL:", error);
+    showErrorToast("Gagal memulai login Google");
+  }
+}
+```
+
+**Error Handling:**
+- Jika error: `"Failed to get Google auth URL"` → Cek koneksi internet
 
 ---
 
 ### 2️⃣ `check_auth_status_command`
 
-**Tujuan:** Cek apakah user sudah login (dengan auto-refresh token)
+**Fungsi:** Cek apakah user sudah login (ada token valid)
 
-**Parameter:** Tidak ada (AppHandle otomatis di-pass oleh Tauri)
+**Parameter:** Tidak ada (token diambil otomatis dari storage)
 
-**Return:** `Result<bool, String>`
-- `true` = User sudah login, token valid
-- `false` = User belum login atau token invalid
-- `Err` = Ada error saat check
+**Return Type:** `bool`
+- `true` = User sudah login, ada token valid
+- `false` = User belum login atau token sudah expired
 
-**Contoh:**
+**Kapan digunakan:**
+1. Saat app startup (App.vue mounted) untuk check status
+2. Sebelum akses halaman yang butuh auth
+
+**Code Example:**
 ```typescript
-try {
-  const isLoggedIn = await invoke('check_auth_status_command');
-  
-  if (isLoggedIn) {
-    console.log("✅ Sudah login, bisa akses profile");
-  } else {
-    console.log("❌ Belum login, redirect ke login page");
+import { invoke } from '@tauri-apps/api/core';
+
+async function checkUserAuth() {
+  try {
+    const isLoggedIn = await invoke<boolean>('check_auth_status_command');
+    
+    if (isLoggedIn) {
+      console.log("✅ User sudah login");
+      // Lanjut ke dashboard
+    } else {
+      console.log("❌ User belum login");
+      // Redirect ke login page
+      router.push('/login');
+    }
+  } catch (error) {
+    console.error("Error checking auth:", error);
+    router.push('/login');
   }
-} catch (error) {
-  console.error("Error checking auth:", error);
 }
 ```
 
-**Best Practice:**
-- Panggil command ini saat app startup untuk ensure token masih valid
-- Gunakan di route guard untuk protect authenticated pages
+**Features:**
+- ✅ Auto-refresh token jika sudah expired (backend handle)
+- ✅ Return true jika refresh berhasil
+- ✅ Return false jika refresh gagal (user harus login ulang)
 
 ---
 
-### 3️⃣ `logout_command`
+### 3️⃣ `get_profile_command`
 
-**Tujuan:** Logout user dan hapus token
+**Fungsi:** Ambil data profile user yang sedang login
 
-**Parameter:** Tidak ada (AppHandle otomatis di-pass oleh Tauri)
+**Parameter:** Tidak ada (user_id diambil dari token)
 
-**Return:** `Result<(), String>`
+**Return Type:** `Profile` (single object, bukan array)
 
-**Contoh:**
+**Response Type:**
 ```typescript
-try {
-  await invoke('logout_command');
-  console.log("✅ Logout berhasil");
-  // Redirect ke login page
-  router.push('/login');
-} catch (error) {
-  console.error("Logout gagal:", error);
+interface Profile {
+  user_id: string;         // UUID dari Supabase auth
+  email: string;           // Email user
+  username: string;        // Username
+  photo_url?: string;      // URL foto profil dari Google
+  role: string;            // "user" atau "admin"
+  status?: string;         // "active", "inactive", dll
+  created_at?: string;     // ISO datetime
 }
 ```
 
----
+**Kapan digunakan:**
+- Setelah login berhasil (di event 'login-success')
+- Setelah check_auth_status_command return true
+- Ketika page profile atau dashboard dimuat
 
-### 4️⃣ `get_profile_command`
-
-**Tujuan:** Ambil data profile user yang sedang login
-
-**Parameter:** Tidak ada (Token otomatis diambil dari storage)
-
-**Return:** `Result<Profile, String>` - Return SINGLE OBJECT langsung, bukan array
-
-**Struktur Profile:**
+**Code Example:**
 ```typescript
+import { invoke } from '@tauri-apps/api/core';
+
 interface Profile {
   user_id: string;
   email: string;
@@ -267,471 +216,565 @@ interface Profile {
   status?: string;
   created_at?: string;
 }
-```
 
-**Contoh:**
-```typescript
-try {
-  const profile = await invoke('get_profile_command');
-  console.log("Profile user:", profile);
-  // ✅ Backend return SINGLE OBJECT (bukan array)
-  // {
-  //   user_id: "uuid-xxx",
-  //   email: "user@gmail.com",
-  //   username: "john_doe",
-  //   photo_url: "https://...",
-  //   role: "user",
-  //   status: "active",
-  //   created_at: "2025-01-01T10:00:00Z"
-  // }
-  
-  // ✅ Frontend bisa langsung akses properties
-  console.log(profile.username);  // "john_doe"
-  console.log(profile.role);      // "user"
-} catch (error) {
-  console.error("Error fetching profile:", error);
+async function loadUserProfile() {
+  try {
+    // ✅ Return SINGLE OBJECT, bukan array
+    const profile = await invoke<Profile>('get_profile_command');
+    
+    console.log("User:", profile.username);
+    console.log("Role:", profile.role);
+    console.log("Email:", profile.email);
+    
+    // Simpan ke Pinia store
+    userStore.setProfile(profile);
+    
+    // Role-based routing
+    if (profile.role === 'admin') {
+      router.push('/admin/dashboard');
+    } else {
+      router.push('/user/dashboard');
+    }
+  } catch (error) {
+    console.error("Error loading profile:", error);
+    showErrorToast("Gagal memuat profil");
+    // Fallback: logout
+    await invoke('logout_command');
+    router.push('/login');
+  }
 }
 ```
 
-**Requirement:** 
-- User harus sudah login (ada valid token)
-- Backend otomatis filter berdasarkan `user_id` yang ada di token
-- Hanya profile user yang sedang login yang akan dikembalikan
+**Important Notes:**
+- ⚠️ Backend otomatis filter berdasarkan `user_id` dari token
+- ⚠️ Jangan kirim user_id sebagai parameter
+- ⚠️ Return adalah SINGLE OBJECT, bukan array (langsung akses `profile.username`)
+- ✅ Error jika user belum login (check_auth_status dulu)
 
-**Backend Logic:**
-1. Extract `user_id` dari access token
-2. Query `profiles` table dengan filter `user_id=eq.{user_id}`
-3. Gunakan header `Accept: application/vnd.pgrst.object+json` untuk return single object
-4. Return Profile object langsung (bukan array)
+---
+
+### 4️⃣ `logout_command`
+
+**Fungsi:** Logout user - hapus token dari storage
+
+**Parameter:** Tidak ada
+
+**Return Type:** `()` (void/unit type)
+
+**Kapan digunakan:** Ketika user klik tombol logout
+
+**Code Example:**
+```typescript
+import { invoke } from '@tauri-apps/api/core';
+
+async function handleLogout() {
+  try {
+    // Call backend logout
+    await invoke('logout_command');
+    console.log("✅ Logged out successfully");
+    
+    // Hapus profile dari store
+    userStore.clearProfile();
+    
+    // Redirect ke login
+    router.push('/login');
+    
+    // Show toast
+    showSuccessToast("Logout berhasil");
+  } catch (error) {
+    console.error("Error logout:", error);
+    showErrorToast("Gagal logout");
+  }
+}
+```
+
+**Note:**
+- Tidak perlu cek auth (backend akan handle error jika tidak login)
+- Setelah logout, akses ke protected route akan redirect ke login
 
 ---
 
 ### 5️⃣ `get_pricelist_command`
 
-**Tujuan:** Ambil daftar harga sampah untuk prediksi nilai
+**Fungsi:** Ambil daftar harga sampah untuk scanning
 
 **Parameter:** Tidak ada
 
-**Return:** `Result<Vec<Pricelist>, String>`
+**Return Type:** `Vec<Pricelist>` (array of pricelist items)
 
-**Struktur Pricelist:**
+**Response Type:**
 ```typescript
 interface Pricelist {
-  id?: string;
-  labels: string;        // Nama jenis sampah (e.g., "plastic", "paper")
-  price: number;         // Harga per kg
+  id: string;              // UUID
+  trash_type: string;      // Jenis sampah (Plastik, Kertas, dll)
+  description?: string;    // Deskripsi
+  price_per_kg: number;    // Harga per kg
+  unit: string;            // Satuan (kg, pcs, dll)
+  category?: string;       // Kategori
+  created_at?: string;     // ISO datetime
+}
+```
+
+**Kapan digunakan:**
+- Saat halaman scanning/pricing dimuat
+- Ketika user perlu lihat daftar harga
+- Cache di store agar tidak request berulang
+
+**Code Example:**
+```typescript
+import { invoke } from '@tauri-apps/api/core';
+
+interface Pricelist {
+  id: string;
+  trash_type: string;
+  description?: string;
+  price_per_kg: number;
+  unit: string;
+  category?: string;
   created_at?: string;
 }
-```
 
-**Contoh:**
-```typescript
-try {
-  const priceList = await invoke('get_pricelist_command');
-  console.log("Daftar harga:", priceList);
-  // [
-  //   { id: "1", labels: "plastic", price: 5000, created_at: "..." },
-  //   { id: "2", labels: "paper", price: 2000, created_at: "..." },
-  //   { id: "3", labels: "metal", price: 8000, created_at: "..." }
-  // ]
-  
-  // Bisa digunakan untuk kalkulasi harga setelah scan
-} catch (error) {
-  console.error("Error fetching pricelist:", error);
+async function loadPricelist() {
+  try {
+    // Return ARRAY of pricelists
+    const pricelists = await invoke<Pricelist[]>('get_pricelist_command');
+    
+    console.log("Pricelist items:", pricelists.length);
+    
+    // Simpan ke store untuk reusable
+    pricelistStore.setPricelists(pricelists);
+    
+    // Display di UI
+    pricelists.forEach(item => {
+      console.log(`${item.trash_type}: Rp${item.price_per_kg}/${item.unit}`);
+    });
+  } catch (error) {
+    console.error("Error loading pricelist:", error);
+    showErrorToast("Gagal memuat daftar harga");
+  }
 }
 ```
 
-**Note:** Command ini tidak memerlukan authentication, bisa diakses siapa saja.
+**Best Practice:**
+- ✅ Cache hasil di store agar tidak request berulang
+- ✅ Refresh setiap 1 jam atau saat user klik "Refresh"
+- ✅ Show loading spinner saat fetch
+- ✅ Handle error dengan graceful
 
 ---
 
 ### 6️⃣ `create_log_command`
 
-**Tujuan:** Catat activity log user ke database
+**Fungsi:** 
+Mencatat aktivitas kritikal, transaksi, keuangan, dan hasil AI ke database Supabase (Audit Trail).
 
 **Parameter:**
 ```typescript
 {
-  level: string,    // "info" | "warning" | "error" | "debug"
-  message: string   // Pesan log
+  level: string,   // "INFO" | "WARNING" | "ERROR"
+  message: string  // Deskripsi detail aktivitas
 }
 ```
+**Return Type ```()``` (void/unit type)**
 
-**Return:** `Result<String, String>`
-- Success: `"Log berhasil dicatat!"`
-- Error: Pesan error dari server
+**Kapan digunakan (Wajib ke supabase):**
+- 🟢 User berhasil mendapat saldo atau melakukan penarikan.
+- 🟢 AI berhasil melakukan scan dan mengidentifikasi sampah.
+- 🔴 Gagal melakukan transaksi keuangan atau error pada server AI.
+- 🟡 Admin mengubah data penting (seperti harga di pricelist).
+- ❌ PENTING: Jangan gunakan command ini untuk log ringan seperti klik tombol, pindah halaman, atau putus internet. (Gunakan write_local_log_command untuk error ringan)
 
-**Contoh:**
-```typescript
-try {
-  const response = await invoke('create_log_command', {
-    level: 'info',
-    message: 'User berhasil scan item pertama'
-  });
-  console.log(response); // "Log berhasil dicatat!"
-} catch (error) {
-  console.error("Error creating log:", error);
+**Code Example:**
+```Typesecript
+import { invoke } from '@tauri-apps/api/core';
+
+// 1. Contoh: Log saat scan AI berhasil dan saldo bertambah
+async function logTransaksiScan(jenisSampah: string, nominal: number) {
+  try {
+    await invoke('create_log_command', {
+      level: 'INFO',
+      message: `Transaksi Sukses: AI mendeteksi ${jenisSampah}, Saldo bertambah Rp${nominal}`
+    });
+    console.log("✅ Log transaksi tersimpan di Supabase");
+  } catch (error) {
+    // Silent fail agar tidak mengganggu UX user
+    console.error("Error logging ke Supabase:", error);
+  }
 }
-```
 
-**Backend secara otomatis:**
-- Ambil `user_id` dari token yang tersimpan
-- Inject `created_at` timestamp
-- Menyimpan ke database
+// 2. Contoh: Log saat sistem AI gagal (Error Kritis)
+async function logErrorAI(errorMsg: string) {
+  try {
+    await invoke('create_log_command', {
+      level: 'ERROR',
+      message: `Sistem AI Gagal memproses gambar: ${errorMsg}`
+    });
+  } catch (error) {
+    console.error("Error logging ke Supabase:", error);
+  }
+}
+````
 
-**Kapan gunakan:**
-- User login → log "User login"
-- User scan item → log "Item scanned: [label]"
-- Terjadi error → log "Error: [message]"
-- User logout → log "User logout"
+**Important Notes:**
+- ✅ Backend sudah otomatis menyisipkan user_id dari token sesi yang aktif.
+- ✅ Backend sudah otomatis membuatkan ID dan Timestamp (created_at).
+- ⚠️ Gunakan command ini dengan bijak (hanya untuk transaksi/data penting) agar tidak menghabiskan kuota row database Supabase.
 
 ---
 
-## 📊 Data Models
+### 7️⃣ `write_local_log_command`
+**Kapan digunakan:**
+- 🔵 Navigasi & UI: User berpindah ke halaman Kamera, membuka halaman Profil, atau menekan tombol tertentu.
 
-### Semua Model yang Tersedia:
+- 🟡 Peringatan Sistem: User menolak memberikan izin akses kamera (Permission Denied), atau aplikasi berjalan lambat.
 
-#### 1. **LogSystem** (Tabel: `log_system`)
+- 🔴 Error Non-Kritis (Jaringan): Gagal mengambil data pricelist karena internet putus, atau gambar gagal dimuat.
+
+- ❌ PENTING: Jangan gunakan ini untuk mencatat penambahan saldo, perubahan harga, atau hasil tebakan AI. (Gunakan create_log_command untuk urusan uang/data penting).
+
+**Code Example:**
 ```typescript
-interface LogSystem {
-  id?: string;
-  user_id: string;
-  level: string;      // "info", "warning", "error", "debug"
-  message: string;
-  created_at?: string;
+import { invoke } from '@tauri-apps/api/core';
+
+async function logLokal() {
+  await invoke('write_local_log_command', {
+    level: 'WARNING',
+    message: 'Koneksi internet user putus saat memuat gambar'
+  });
 }
 ```
 
-#### 2. **Profile** (Tabel: `profiles`) - Auto-filtered by user_id
+---
 
+## 📊 Complete Data Models
+
+### 1. Profile
 ```typescript
 interface Profile {
   user_id: string;
   email: string;
   username: string;
   photo_url?: string;
-  role: string;       // "admin", "user", etc
-  status?: string;    // "active", "inactive"
+  role: string;        // "user" atau "admin"
+  status?: string;
   created_at?: string;
 }
 ```
 
-**⚠️ PENTING:** Saat call `get_profile_command`:
-- Backend otomatis extract `user_id` dari token
-- Hanya profile dengan user_id yang sesuai yang dikembalikan
-- Frontend tidak perlu kirim user_id sebagai parameter
-- Return tipe adalah SINGLE OBJECT, bukan array
-- Bisa langsung akses: `profile.username`, `profile.role`, etc
-
-#### 3. **Scan** (Tabel: `scan`)
-```typescript
-interface Scan {
-  user_id: string;
-  img_url?: string;           // URL foto hasil scan
-  label?: string;             // Jenis sampah yang terdeteksi
-  price_predict?: string;     // Prediksi harga
-  created_at?: string;
-}
-```
-
-#### 4. **Pricelist** (Tabel: `pricelist`)
+### 2. Pricelist
 ```typescript
 interface Pricelist {
-  id?: string;
-  labels: string;     // Jenis sampah
-  price: number;      // Harga per kg
+  id: string;
+  trash_type: string;
+  description?: string;
+  price_per_kg: number;
+  unit: string;        // "kg", "pcs", etc
+  category?: string;
   created_at?: string;
 }
 ```
 
-#### 5. **Savings** (Tabel: `savings`)
+### 3. Log Payload (Untuk create_log_command & write_local_log_command)
 ```typescript
-interface Savings {
-  id?: string;
+interface LogPayload {
+  level: string;     // "INFO" | "WARNING" | "ERROR" | "DEBUG"
+  message: string;   // Deskripsi lengkap kejadian/transaksi
+}
+```
+
+### 4. Additional Models (Reference)
+```typescript
+// Referensi tabel transaksi scan
+interface Scan {
+  id: string;
   user_id: string;
-  amount_before: number;  // Saldo sebelumnya
-  amount: number;         // Saldo sekarang
-  created_at?: string;
+  trash_type: string;
+  weight_kg: number;
+  price_per_kg: number;
+  total_price: number;
+  created_at: string;
+}
+
+// Referensi tabel saldo user
+interface Savings {
+  id: string;
+  user_id: string;
+  total_amount: number;
+  currency: string;
+  last_updated: string;
+}
+
+// Referensi tabel log_system di Supabase (Audit Trail)
+interface LogSystem {
+  id: string;
+  user_id: string;
+  level: string;       // "INFO", "WARNING", "ERROR"
+  message: string;     // Deskripsi kejadian
+  created_at: string;
 }
 ```
 
 ---
 
-## ⚠️ Error Handling
+## 🚀 Recommended App.vue Pattern
 
-Semua command return `Result<T, String>` dimana error adalah pesan `String`.
+Ini adalah pattern yang sudah tested dan recommended untuk App.vue:
 
-**Penanganan Error di Frontend:**
+```vue
+<template>
+  <div id="app">
+    <!-- Loading screen saat check auth -->
+    <div v-if="isLoading" class="loading-container">
+      <div class="spinner"></div>
+      <p>Loading...</p>
+    </div>
 
-```typescript
-try {
-  const result = await invoke('command_name', { /* params */ });
-  // Success handling
-} catch (error) {
-  const errorMessage = error as string;
-  
-  if (errorMessage.includes("Akses ditolak")) {
-    // Token tidak valid, redirect ke login
-    router.push('/login');
-  } else if (errorMessage.includes("tidak ada sesi aktif")) {
-    // User belum login
-    showToast("Silakan login terlebih dahulu");
-  } else {
-    // Error umum
-    console.error("Error:", errorMessage);
-  }
-}
-```
+    <!-- Main content setelah loading selesai -->
+    <RouterView v-else />
+  </div>
+</template>
 
-**Common Error Messages:**
-
-| Error Message | Penyebab | Solusi |
-|---|---|---|
-| `Akses ditolak: User belum login!` | Belum ada valid token | Suruh user login |
-| `Akses ditolak: Tidak ada sesi aktif.` | Session sudah expired | Suruh user login ulang |
-| `Network error` | Tidak bisa connect ke Supabase | Cek internet connection |
-| `Invalid token` | Token tidak valid di Supabase | Auto-refresh akan trigger, atau login ulang |
-
----
-
-## ✅ Best Practices
-
-### 1. **Route Protection (Guard)**
-
-```typescript
-// router/guards.ts
-import { invoke } from '@tauri-apps/api/core';
-
-export async function checkAuthGuard() {
-  try {
-    const isLoggedIn = await invoke('check_auth_status_command');
-    return isLoggedIn;
-  } catch {
-    return false;
-  }
-}
-
-// Gunakan di route
-beforeEach(async (to, from, next) => {
-  if (to.meta.requiresAuth) {
-    const isAuth = await checkAuthGuard();
-    isAuth ? next() : next('/login');
-  } else {
-    next();
-  }
-})
-```
-
-### 2. **Load Profile setelah Login (dengan Loading State)**
-
-```typescript
-// Setelah berhasil login
-const isLoading = ref(true);
-
-listen('login-success', async () => {
-  try {
-    isLoading.value = true;  // Nyalakan loading spinner
-    const profile = await invoke('get_profile_command');
-    // Profile adalah SINGLE OBJECT, bukan array
-    console.log("Nama:", profile.username);  // Bisa akses langsung
-    
-    // Simpan ke Pinia/Vuex store
-    userStore.setProfile(profile);
-    
-    // Redirect berdasarkan role
-    if (profile.role === 'admin') {
-      router.push('/admin-dashboard');
-    } else {
-      router.push('/user-dashboard');
-    }
-  } catch (error) {
-    console.error("Error loading profile:", error);
-    showToast("Gagal mengambil profil, silakan login ulang");
-  } finally {
-    isLoading.value = false;  // Matikan loading spinner
-  }
-});
-```
-
-### 3. **Cache Pricelist**
-
-```typescript
-// Load pricelist sekali saja saat app startup
-const pricelist = await invoke('get_pricelist_command');
-// Simpan ke Pinia store untuk reuse
-appStore.setPricelist(pricelist);
-
-// Kemudian gunakan dari store, jangan panggil command lagi
-```
-
-### 4. **Logging Activity**
-
-```typescript
-// Setiap action penting, catat ke log
-async function scanItem(label: string) {
-  // ... scan logic ...
-  
-  // Catat ke database
-  await invoke('create_log_command', {
-    level: 'info',
-    message: `Item scanned: ${label}`
-  }).catch(err => console.error("Log failed:", err));
-}
-```
-
-### 5. **Auto-Check Auth saat App Load (Recommended Pattern)**
-
-Gunakan pattern seperti di App.vue untuk better UX:
-
-```typescript
-// App.vue
+<script setup lang="ts">
 import { ref, onMounted } from 'vue';
 import { invoke } from '@tauri-apps/api/core';
 import { listen } from '@tauri-apps/api/event';
+import { useRouter } from 'vue-router';
+import { useUserStore } from '@/stores/userStore';
 
+const router = useRouter();
+const userStore = useUserStore();
 const isLoading = ref(true);
-const userProfile = ref(null);
 
+// Fetch profile & redirect berdasarkan role
 async function fetchProfileAndRoute() {
   try {
     const profile = await invoke('get_profile_command');
-    userProfile.value = profile;  // Profile adalah SINGLE OBJECT
+    console.log("Profile loaded:", profile);
     
-    // Redirect berdasarkan role
+    // Simpan ke store
+    userStore.setProfile(profile);
+
+    // Role-based routing
     if (profile.role === 'admin') {
-      router.push('/admin-dashboard');
+      router.push('/admin/dashboard');
     } else {
-      router.push('/user-dashboard');
+      router.push('/user/dashboard');
     }
   } catch (err) {
-    console.error("Profile Error:", err);
+    console.error("Error fetching profile:", err);
+    showErrorToast("Failed to load profile");
+    // Logout jika gagal fetch profile
+    await invoke('logout_command');
+    router.push('/login');
   } finally {
-    isLoading.value = false;  // PENTING: matikan loading
+    isLoading.value = false;
   }
 }
 
 onMounted(async () => {
   try {
-    isLoading.value = true;  // Nyalakan loading saat check auth
+    isLoading.value = true;
+
+    // 1. Check apakah user sudah login
     const isLoggedIn = await invoke('check_auth_status_command');
-    
+    console.log("Auth status:", isLoggedIn);
+
     if (isLoggedIn) {
+      // 2. Fetch profile jika sudah login
       await fetchProfileAndRoute();
     } else {
+      // 3. Redirect ke login jika belum login
       isLoading.value = false;
       router.push('/login');
     }
   } catch (err) {
+    console.error("Auth check error:", err);
     isLoading.value = false;
     router.push('/login');
   }
 
-  // Listen event login-success dari deep link
-  listen('login-success', async () => {
+  // 4. Listen untuk event login-success dari OAuth deep link
+  await listen('login-success', async () => {
+    console.log("Login success event received!");
     isLoading.value = true;
     await fetchProfileAndRoute();
   });
 });
-```
+</script>
 
-**Kenapa pattern ini penting:**
-- Loading state mencegah UI flickering
-- Proper error handling jika profile gagal diambil
-- Better UX dengan loading indicator
-- Prevent race condition dengan listen event
+<style scoped>
+.loading-container {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  height: 100vh;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+}
 
-### 6. **Never Store Token di Frontend**
+.spinner {
+  border: 4px solid rgba(255, 255, 255, 0.3);
+  border-top: 4px solid white;
+  border-radius: 50%;
+  width: 40px;
+  height: 40px;
+  animation: spin 0.8s linear infinite;
+  margin-bottom: 20px;
+}
 
-```typescript
-// ❌ JANGAN LAKUKAN INI
-localStorage.setItem('token', accessToken);
-
-// ✅ Backend sudah handle token storage secara aman
-// Frontend tinggal panggil commands
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+</style>
 ```
 
 ---
 
-## 🔄 Call Sequence Example: Login → Home
+## 🛡️ Error Handling Guide
 
+### Common Errors & Solutions
+
+| Error | Cause | Solution |
+|-------|-------|----------|
+| `"Auth token not found"` | User belum login | Redirect ke /login |
+| `"Invalid or expired token"` | Token sudah kadaluarsa | Auto-refresh (backend handle) |
+| `"User profile not found"` | Profile belum dibuat saat signup | Create profile di signup flow |
+| `"Unauthorized"` | User tidak punya akses | Check role, redirect ke /login |
+| `"Failed to get Google auth URL"` | Koneksi internet/config Google | Check internet, check .env |
+| `"Network error"` | Backend tidak accessible | Check backend running |
+
+### Error Handling Pattern
+
+```typescript
+import { invoke } from '@tauri-apps/api/core';
+
+async function callBackendCommand(commandName: string, params?: any) {
+  try {
+    const result = await invoke(commandName, params);
+    return { success: true, data: result };
+  } catch (error) {
+    console.error(`Error calling ${commandName}:`, error);
+    
+    // Handle specific errors
+    const errorStr = String(error);
+    if (errorStr.includes('token')) {
+      // Token error - logout
+      await invoke('logout_command');
+      router.push('/login');
+      return { success: false, error: 'Session expired, please login again' };
+    } else if (errorStr.includes('Network')) {
+      return { success: false, error: 'Network error, check internet connection' };
+    } else {
+      return { success: false, error: errorStr };
+    }
+  }
+}
+
+// Usage
+const result = await callBackendCommand('get_profile_command');
+if (!result.success) {
+  showErrorToast(result.error);
+} else {
+  console.log("Profile:", result.data);
+}
 ```
-1. User di login page klik "Login with Google"
-   └─ Frontend: invoke('get_google_auth_url_command')
-   └─ Frontend: window.open(authUrl)
 
-2. User login di Google, OAuth redirect ke deep link
-   └─ Backend: Parse token dari URL
-   └─ Backend: Simpan token ke RAM & Disk
-   └─ Backend: Emit 'login-success' event
+---
 
-3. Frontend listen event 'login-success'
-   └─ Frontend: Panggil invoke('check_auth_status_command')
-   └─ Backend: Return true (sudah ada token valid)
+## ✅ Frontend Integration Checklist
 
-4. Frontend load profile
-   └─ Frontend: invoke('get_profile_command')
-   └─ Backend: Return user profile
+**Phase 1: Setup**
+- [ ] Install @tauri-apps/api package
+- [ ] Create TypeScript interfaces untuk semua models
+- [ ] Setup Pinia/Vuex store untuk user data
+- [ ] Setup Vue Router dengan protected routes
 
-5. Frontend load pricelist
-   └─ Frontend: invoke('get_pricelist_command')
-   └─ Backend: Return pricelist
+**Phase 2: Authentication**
+- [ ] Implement App.vue with auth check on mount
+- [ ] Create Login page dengan "Login dengan Google" button
+- [ ] Call `get_google_auth_url_command` & buka URL
+- [ ] Listen event `login-success` dari OAuth redirect
+- [ ] Call `get_profile_command` setelah login
+- [ ] Implement `logout_command` di logout button
 
-6. Frontend redirect ke /home
-   └─ Frontend: Tampilkan profile & pricelist di UI
-```
+**Phase 3: Core Features**
+- [ ] Create Dashboard page (protected)
+- [ ] Call `get_profile_command` untuk user info
+- [ ] Call `get_pricelist_command` di pricing/scanning page
+- [ ] Implement scan form dengan `create_log_command`
+- [ ] Add loading spinners untuk semua async calls
+
+**Phase 4: Logging & Analytics**
+- [ ] Call `create_log_command` untuk page views
+- [ ] Log scan/transaction activities
+- [ ] Handle silent errors untuk logging
+
+**Phase 5: Error Handling**
+- [ ] Implement global error handler
+- [ ] Handle token expiration & auto-refresh
+- [ ] Show user-friendly error messages
+- [ ] Log errors ke backend
+
+**Phase 6: Testing & Polish**
+- [ ] Test login flow lengkap
+- [ ] Test logout & redirect
+- [ ] Test role-based routing
+- [ ] Test error scenarios
+- [ ] Test offline behavior
 
 ---
 
 ## 🐛 Debug Tips
 
-Kalau ada issue saat development:
+### Enable Backend Logs
+Saat develop, backend print logs. Buka Tauri console untuk melihat:
+- Apa token yang dipakai
+- Query apa yang di-execute
+- Error detail dari Supabase
 
-1. **Check Rust Console Output**
-   ```
-   Cari log dengan prefix [RUST] atau emoji 🔥 ✅ ❌
-   Itu adalah debug message dari backend
-   ```
+### Common Issues
 
-2. **Check Token Status**
-   ```
-   Backend print token baru setiap kali refresh
-   Cari "[DEBUG] ACCESS TOKEN BARU:" di console
-   ```
+**Issue: "invoke not found"**
+```typescript
+// ❌ WRONG
+const profile = get_profile_command();
 
-3. **Check Deep Link**
-   ```
-   Pastikan OAuth redirect URL sesuai dengan deep link handler
-   Harus format: scantrash://oauth?access_token=xxx&refresh_token=yyy
-   ```
+// ✅ CORRECT
+import { invoke } from '@tauri-apps/api/core';
+const profile = await invoke('get_profile_command');
+```
 
-4. **Validate Commands**
-   ```typescript
-   // Sebelum deploy, test semua commands
-   const commands = [
-     'get_google_auth_url_command',
-     'check_auth_status_command',
-     'logout_command',
-     'get_profile_command',
-     'get_pricelist_command',
-     'create_log_command'
-   ];
-   ```
+**Issue: get_profile_command return array, bukan object**
+```typescript
+// ❌ WRONG - Treat as array
+const name = profiles[0].username;
 
----
+// ✅ CORRECT - Treat as single object
+const name = profile.username;
+```
 
-## 📝 Checklist Frontend Integration
+**Issue: Token tidak auto-refresh**
+- Backend sudah handle auto-refresh saat `check_auth_status_command`
+- Cek di server logs apakah refresh successful
 
-- [ ] Load `get_google_auth_url_command` saat user di login page
-- [ ] Listen event `login-success` dan redirect ke home
-- [ ] Implement route guard dengan `check_auth_status_command`
-- [ ] Load profile dengan `get_profile_command` setelah login
-- [ ] Cache pricelist dengan `get_pricelist_command`
-- [ ] Log activity dengan `create_log_command`
-- [ ] Implement logout dengan `logout_command`
-- [ ] Test semua flows di real Android device
-- [ ] Handle network errors dan token expiration
-- [ ] Remove debug console.log sebelum production
+**Issue: Event login-success tidak trigger**
+- Pastikan deep link sudah di-register: `com.users.scantrash://auth?access_token=xxx&refresh_token=yyy`
+- Check tauri.conf.json untuk deep link config
+- Check backend auth_service apakah emit event
 
 ---
 
-**Good luck! Hubungi backend team kalau ada pertanyaan. 🚀**
+## 📞 Support
+
+Jika ada issue atau pertanyaan:
+1. Check kode di `src-tauri/src/` untuk implementasi detail
+2. Check Tauri docs: https://docs.rs/tauri/
+3. Check Supabase docs: https://supabase.com/docs
+4. Tanya di grup apl
+
+---
+
+**Last Updated:** Latest - Sesuai dengan kode backend saat ini
+**Status:** Ready for Frontend Integration ✅
