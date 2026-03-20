@@ -25,6 +25,7 @@ SESSION_SECRET_KEY=Sc4nTr4sh_S3cur3_K3y_2026_Atau_Apapun_Bebas
 | `get_pricelist_command` | Ambil daftar harga sampah | ✅ Ya | `Vec<Pricelist>` (array) |
 | `create_log_command` | Log aktivitas user secara online dan disimpan di supabase | ✅ Ya | `()` |
 | `write_local_log_command` | Log aktivitas user secara lokal | ❌ Tidak | `()` |
+| `read_local_log_command` | Baca log dari Memori HP | ❌ Tidak | `()` |
 
 ---
 
@@ -445,6 +446,25 @@ async function logLokal() {
 ```
 
 ---
+
+### 8️⃣ read_local_log_command (Debug Tool)
+**Fungsi:** Membaca seluruh isi log dari memori HP untuk ditampilkan di UI.
+
+**Return:** String (Isi teks log)
+
+**Kapan digunakan:** Di halaman "Settings" atau "Developer Mode" untuk melihat riwayat error tanpa kabel USB.
+
+**Code Example:**
+```typescript
+async function showDebugLogs() {
+  const logContent = await invoke<string>('read_local_log_command');
+  console.log("Isi Log HP:", logContent);
+}
+```
+
+
+---
+
 
 ## 📊 Complete Data Models
 
