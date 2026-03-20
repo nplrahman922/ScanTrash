@@ -25,7 +25,7 @@ SESSION_SECRET_KEY=Sc4nTr4sh_S3cur3_K3y_2026_Atau_Apapun_Bebas
 | `get_pricelist_command` | Ambil daftar harga sampah | ✅ Ya | `Vec<Pricelist>` (array) |
 | `create_log_command` | Log aktivitas user secara online dan disimpan di supabase | ✅ Ya | `()` |
 | `write_local_log_command` | Log aktivitas user secara lokal | ❌ Tidak | `()` |
-| `read_local_log_command` | Baca log dari Memori HP | ❌ Tidak | `()` |
+| `read_local_log_command` | Baca log dari Memori HP | ❌ Tidak | `String` |
 
 ---
 
