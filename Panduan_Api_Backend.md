@@ -26,6 +26,7 @@ SESSION_SECRET_KEY=Sc4nTr4sh_S3cur3_K3y_2026_Atau_Apapun_Bebas
 | `create_log_command` | Log aktivitas user secara online dan disimpan di supabase | ✅ Ya | `()` |
 | `write_local_log_command` | Log aktivitas user secara lokal | ❌ Tidak | `()` |
 | `read_local_log_command` | Baca log dari Memori HP | ❌ Tidak | `String` |
+| `analyze_trash_command` | Deteksi gambar sampah via AI | ✅ Ya | `ScanResult` (Object) |
 
 ---
 
@@ -462,6 +463,135 @@ async function showDebugLogs() {
 }
 ```
 
+### 9️⃣ analyze_trash_command (Saat ini masih mockup saja)
+**Fungsi:** Menerima gambar sampah dari device pengguna (Kamera/Galeri), memprosesnya melalui model AI (OpenAI Vision) untuk mendeteksi jenis material dan kelayakannya, mencocokkan harga dari database Supabase, dan mengembalikan hasil analisis lengkap ke layar UI.
+
+**Parameter:** 
+``` Typescript
+{
+  imageBase64: string // Teks Base64 murni TANPA prefix "data:image/jpeg;base64,"
+}
+```
+
+**Return:** ``Result<ScanResult, String>`` (Akan melempar error string jika gagal).
+
+**Response Model (``ScanResult``):**
+```Typescript
+interface ScanResult {
+  status: string;         // "success" | "failed" | "unrecognized"
+  trash_type: string;     // Nama display untuk UI (Contoh: "Botol Plastik PET")
+  label_id: string;       // ID untuk referensi DB (Contoh: "plastic_pet")
+  kelayakan: string;      // Kategori kelayakan (Contoh: "Layak Ditabung")
+  material_info: string;  // Penjelasan material (Contoh: "Plastik PET, ukuran standar.")
+  kondisi: string;        // Hasil visual AI (Contoh: "Utuh namun sudah diremas.")
+  kebersihan: string;     // Hasil visual AI (Contoh: "Sangat bersih.")
+  estimasi_harga: number; // Harga per satuan/kg dari DB Supabase (Contoh: 4000)
+}
+```
+
+**PENTING UNTUK FRONTEND!!!:** JANGAN PERNAH mengirimkan file gambar mentah (raw image) langsung dari kamera ke dalam command ini. Resolusi kamera HP modern bisa mencapai 10MB - 20MB. Jika file sebesar itu diubah menjadi Base64 dan dikirim ke Rust, memori HP akan penuh (Out of Memory/OOM) dan aplikasi akan Force Close (Crash).
+
+**Aturan Wajib Frontend:** 
+1. Tangkap gambar dari tag ``<video>`` atau input file galeri. 
+2. Gambar WAJIB di-resize/kompres menggunakan HTML5 ``<canvas>`` di sisi Vue.
+3. Batas maksimal ukuran dimensi: 800x800 pixels. (bisa didiskusikan untuk ukuran)
+4. Format kompresi: JPEG dengan Quality 70% (0.7). (akan didiskusikan)
+5. Buang awalan data:image/jpeg;base64, sebelum dikirim ke invoke.
+
+
+
+**Code Example (Vue.js Integration):**
+```typescript
+import { invoke } from '@tauri-apps/api/core';
+
+// 1. Fungsi Utama Pemanggilan AI
+async function scanSampah(fileGambarAsli: File) {
+  try {
+    console.log("Memulai kompresi gambar...");
+    
+    // Wajib panggil fungsi kompresi dulu!
+    const base64Aman = await compressImageForAI(fileGambarAsli);
+    
+    console.log("Gambar berhasil dikompres, mengirim ke Backend/AI...");
+    
+    // Panggil command Rust
+    const result = await invoke<ScanResult>('analyze_trash_command', { 
+      imageBase64: base64Aman 
+    });
+
+    console.log("✅ Hasil Scan Sukses:", result);
+    // TODO: Tampilkan result.trash_type dan result.estimasi_harga ke UI Bottom Sheet
+    
+  } catch (error) {
+    console.error("❌ Gagal melakukan scan:", error);
+    // TODO: Tampilkan Toast error ke user ("Gagal mengenali gambar, pastikan pencahayaan cukup")
+  }
+}
+
+// 2. Fungsi Helper: Kompresi Gambar (Standard Krenova)
+function compressImageForAI(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.readAsDataURL(file);
+    reader.onload = (event) => {
+      const img = new Image();
+      img.src = event.target?.result as string;
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        const MAX_WIDTH = 800; 
+        const MAX_HEIGHT = 800;
+        let width = img.width;
+        let height = img.height;
+
+        // Hitung rasio untuk mencegah gambar gepeng
+        if (width > height) {
+          if (width > MAX_WIDTH) {
+            height *= MAX_WIDTH / width;
+            width = MAX_WIDTH;
+          }
+        } else {
+          if (height > MAX_HEIGHT) {
+            width *= MAX_HEIGHT / height;
+            height = MAX_HEIGHT;
+          }
+        }
+
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+        ctx?.drawImage(img, 0, 0, width, height);
+
+        // Export ke JPEG 70%
+        const dataUrl = canvas.toDataURL('image/jpeg', 0.7);
+        // Hapus prefix agar Rust menerima murni teks Base64
+        const base64String = dataUrl.split(',')[1]; 
+        
+        resolve(base64String);
+      };
+      img.onerror = (error) => reject(error);
+    };
+    reader.onerror = (error) => reject(error);
+  });
+}
+```
+
+**⏱️ Catatan Latensi & Alur Backend (Informasi Tambahan)**
+Tim Frontend perlu menambahkan Loading Spinner (seperti "Menganalisis Sampah...") karena command ini membutuhkan waktu pemrosesan sekitar 3 hingga 7 detik (tergantung koneksi internet).
+
+Hal ini terjadi karena di belakang layar (Backend), command ini melakukan serangkaian tugas berat secara berurutan:
+1. Menerima gambar dan merakit Prompt untuk AI.
+
+2. Mengirim gambar ke API OpenAI (Menunggu respons AI).
+
+3. Mengecek harga ke Database Supabase (tabel pricelist) berdasarkan tebakan AI.
+
+4. Mengunggah gambar tersebut ke Supabase Storage Bucket.
+
+5. Menyimpan riwayat transaksi scan ke dalam Database.
+
+6. Mengembalikan ScanResult ke Frontend.
+
+Atau bisa langsung lihat implementasinya di src/views/ScanView.vue
 
 ---
 

@@ -22,10 +22,14 @@ pub async fn analyze_trash_command(
     
     // 1. Cek apakah Frontend benar-benar mengirim gambar
     if image_base64.is_empty() {
+        print!("❌ Gambar kosong diterima di Rust.");
+        crate::services::local_log_service::write_local_log(&app_handle, "WARNING", "Gagal menerima gambar.");
         return Err("Gagal: Gambar kosong atau tidak terbaca.".to_string());
+        
     }
 
     // Catat log ukuran gambar (hanya untuk debugging)
+    print!("✅ Menerima gambar dengan ukuran {} bytes", image_base64.len());
     crate::services::local_log_service::write_local_log(
         &app_handle, 
         "INFO", 

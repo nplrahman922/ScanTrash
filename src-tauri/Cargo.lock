@@ -3363,11 +3363,11 @@ dependencies = [
  "serde_json",
  "tauri",
  "tauri-build",
- "tauri-plugin-camera",
  "tauri-plugin-deep-link",
  "tauri-plugin-opener",
  "tauri-plugin-shell",
  "tauri-plugin-store",
+ "tokio",
 ]
 
 [[package]]
@@ -4111,18 +4111,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "tauri-plugin-camera"
-version = "0.1.4"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9581dd0ec758c251bf766366e3695a5afe27065bc4e4a9ce55d4ee4309eec3b4"
-dependencies = [
- "serde",
- "tauri",
- "tauri-plugin",
- "thiserror 2.0.18",
-]
-
-[[package]]
 name = "tauri-plugin-deep-link"
 version = "2.4.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4428,9 +4416,9 @@ dependencies = [
 
 [[package]]
 name = "tokio"
-version = "1.49.0"
+version = "1.50.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "72a2903cd7736441aac9df9d7688bd0ce48edccaadf181c3b90be801e81d3d86"
+checksum = "27ad5e34374e03cfffefc301becb44e9dc3c17584f414349ebe29ed26661822d"
 dependencies = [
  "bytes",
  "libc",
