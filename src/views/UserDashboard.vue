@@ -6,10 +6,13 @@
         <p class="text-gray-600 mb-4">Selamat datang di dashboard pengguna ScanTrash!</p>
 
         <div class="space-y-4">
-          <div class="bg-green-50 p-4 rounded-lg">
+          <button
+            @click="$router.push('/scan')"
+            class="w-full bg-green-50 p-4 rounded-lg hover:bg-green-100 transition text-left"
+          >
             <h3 class="font-semibold text-green-800">Scan Sampah</h3>
             <p class="text-green-600 text-sm">Gunakan kamera untuk scan sampah Anda</p>
-          </div>
+          </button>
 
           <div class="bg-blue-50 p-4 rounded-lg">
             <h3 class="font-semibold text-blue-800">Riwayat Scan</h3>

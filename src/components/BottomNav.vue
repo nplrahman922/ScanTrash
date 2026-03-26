@@ -29,6 +29,8 @@ export default {
         return { icon: RiwayatIcon, text: 'Riwayat' };
       } else if (path === '/jadwal-setor') {
         return { icon: JadwalIcon, text: 'Jadwal' };
+      } else if (path === '/scan') {
+        return { icon: KatalogIcon, text: 'Scan' };
       } else {
         return { icon: BerandaIcon, text: 'Beranda' };
       }

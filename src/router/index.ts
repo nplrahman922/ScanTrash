@@ -2,6 +2,7 @@ import { createRouter, createWebHistory, RouteRecordRaw } from 'vue-router'
 import LoginView from '../views/LoginView.vue'
 import UserDashboard from '../views/UserDashboard.vue'
 import AdminDashboard from '../views/AdminDashboard.vue'
+import ScanView from '../views/ScanView.vue'
 
 const routes: Array<RouteRecordRaw> = [
   {
@@ -18,7 +19,12 @@ const routes: Array<RouteRecordRaw> = [
     path: '/admin-dashboard',
     name: 'AdminDashboard',
     component: AdminDashboard
-  }
+  },
+  {
+    path: '/scan',
+    name: 'ScanView',
+    component: ScanView
+  },
 ]
 
 const router = createRouter({
