@@ -75,9 +75,6 @@ pub async fn logout_from_server(access_token: &str) {
         .header("Authorization", format!("Bearer {}", access_token))
         .send()
         .await;
-    
-    // Kita abaikan responsenya (entah sukses atau gagal di server, 
-    // yang penting aplikasi kita tetap membuang token di HP)
 }
 
 pub async fn get_user_id(access_token: &str) -> Result<String, String> {
