@@ -22,35 +22,9 @@
           </div>
         </div>
       </div>
-
-      <!-- Profile Info -->
-      <div v-if="authStore.userProfile" class="bg-white rounded-xl p-6 shadow-md">
-        <h2 class="text-xl font-bold text-gray-800 mb-4">Informasi Profil</h2>
-        <div class="flex items-center space-x-4">
-          <img
-            v-if="authStore.userProfile.photo_url"
-            :src="authStore.userProfile.photo_url"
-            alt="Profile"
-            class="w-16 h-16 rounded-full border-2 border-green-500"
-          />
-          <div v-else class="w-16 h-16 rounded-full bg-gray-300 flex items-center justify-center">
-            <span class="text-2xl">👤</span>
-          </div>
-          <div>
-            <p class="font-semibold text-gray-800">{{ authStore.userProfile.username }}</p>
-            <p class="text-gray-600 text-sm">{{ authStore.userProfile.email }}</p>
-            <span class="inline-block mt-1 px-2 py-1 text-xs font-bold rounded-full bg-blue-100 text-blue-700">
-              {{ authStore.userProfile.role }}
-            </span>
-          </div>
-        </div>
-      </div>
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import { useAuthStore } from '../stores/authStore'
-
-const authStore = useAuthStore()
 </script>

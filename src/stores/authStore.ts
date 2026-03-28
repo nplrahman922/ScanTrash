@@ -1,13 +1,13 @@
 import { defineStore } from "pinia"
 import { invoke } from "@tauri-apps/api/core"
-import type { LoginCredentials, LoginResponse } from "../types/auth"
+import type { LoginCredentials, LoginResponse, Profile } from "../types/auth"
 
 interface AuthState {
   user: any | null
   token: string | null  // JANGAN DIGUNAKAN - backend handle token storage
   loading: boolean
   error: string | null
-  profile: any | null
+  profile: Profile | null
 }
 
 export const useAuthStore = defineStore("auth", {
@@ -37,6 +37,8 @@ export const useAuthStore = defineStore("auth", {
 
         this.token = response.token
         this.user = response.user
+
+        await this.fetchProfile() // Ambil profile setelah login sukses
 
         // JANGAN STORE TOKEN DI LOCALSTORAGE - backend handle
         // if (this.token) {
@@ -100,9 +102,9 @@ export const useAuthStore = defineStore("auth", {
       }
     },
 
-    async fetchProfile() {
+    async fetchProfile(): Promise<Profile> {
       try {
-        const profile = await invoke('get_profile_command')
+        const profile = await invoke<Profile>('get_profile_command')
         this.setUser(profile)
         return profile
       } catch (error) {
@@ -111,7 +113,7 @@ export const useAuthStore = defineStore("auth", {
       }
     },
 
-    setUser(profile: any) {
+    setUser(profile: Profile) {
       this.profile = profile
       this.error = null
     },

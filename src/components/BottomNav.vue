@@ -1,42 +1,44 @@
-<template>
-  <div class="border-t border-blue-500 my-1"></div>
-  <footer class="flex items-center justify-center px-4 py-2 bg-white shadow-md fixed bottom-0 left-0 right-0 z-10">
-    <div class="flex flex-col items-center text-center py-2 px-4">
-      <img class="w-6 h-6 mb-1" :src="currentMenu.icon" :alt="currentMenu.text" />
-      <span class="text-xs text-gray-800">{{ currentMenu.text }}</span>
-    </div>
-  </footer>
-</template>
+<script setup lang="ts">
+import { useRouter } from "vue-router"
 
-<script lang="ts">
-import BerandaIcon from '../assets/Beranda.svg';
-import NasabahIcon from '../assets/Nasabah.svg';
-import KatalogIcon from '../assets/Katalog\ Harga.svg';
-import RiwayatIcon from '../assets/Riwayat.svg';
-import JadwalIcon from '../assets/Jadwal\ Setor.svg';
-export default {
-  name: 'BottomNav',
-  computed: {
-    currentMenu() {
-      const path = this.$route.path;
-      if (path === '/dashboard' || path === '/') {
-        return { icon: BerandaIcon, text: 'Beranda' };
-      } else if (path === '/nasabah') {
-        return { icon: NasabahIcon, text: 'Nasabah' };
-      } else if (path === '/katalog-harga') {
-        return { icon: KatalogIcon, text: 'Katalog' };
-      } else if (path === '/riwayat') {
-        return { icon: RiwayatIcon, text: 'Riwayat' };
-      } else if (path === '/jadwal-setor') {
-        return { icon: JadwalIcon, text: 'Jadwal' };
-      } else {
-        return { icon: BerandaIcon, text: 'Beranda' };
-      }
-    },
-  },
-};
+import IconHome from "../assets/Beranda.svg"
+import IconWallet from "../assets/user/Dompet2.svg"
+import IconScan from "../assets/user/Scan2.svg"
+
+const router = useRouter()
+
+const goTo = (path: string) => {
+  router.push(path)
+}
 </script>
 
-<style scoped>
-/* Tambahkan padding bottom ke body atau container utama untuk menghindari overlap dengan bottom nav fixed */
-</style>
+<template>
+  <div class="fixed bottom-0 left-0 w-full bg-white border-t shadow-md z-50">
+    
+    <div class="relative flex justify-around items-center h-16">
+
+      <!-- Left -->
+      <button @click="goTo('/')" class="flex flex-col items-center text-sm text-blue-500">
+        <img :src="IconHome" class="w-6 h-6" />
+        <span>Beranda</span>
+      </button>
+
+      <div class="w-16"></div>
+
+      <!-- Right -->
+      <button @click="goTo('/wallet')" class="flex flex-col items-center text-sm text-blue-500">
+        <img :src="IconWallet" class="w-6 h-6" />
+        <span>Dompet</span>
+      </button>
+
+      <!-- Scan -->
+      <button
+        @click="goTo('/scan')"
+        class="absolute -top-6 bg-green-500 w-14 h-14 rounded-full flex items-center justify-center shadow-lg border-4 border-white"
+      >
+        <img :src="IconScan" class="w-7 h-7" />
+      </button>
+
+    </div>
+  </div>
+</template>
