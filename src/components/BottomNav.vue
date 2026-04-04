@@ -19,24 +19,22 @@ const goTo = (path: string) => {
 
       <!-- Left -->
       <button @click="goTo('/')" class="flex flex-col items-center text-sm text-blue-500">
-        <img :src="IconHome" class="w-6 h-6" />
-        <span>Beranda</span>
+        <img :src="IconHome" class="w-10 h-10" />
       </button>
 
       <div class="w-16"></div>
 
       <!-- Right -->
       <button @click="goTo('/wallet')" class="flex flex-col items-center text-sm text-blue-500">
-        <img :src="IconWallet" class="w-6 h-6" />
-        <span>Dompet</span>
+        <img :src="IconWallet" class="w-10 h-10" />
       </button>
 
       <!-- Scan -->
       <button
         @click="goTo('/scan')"
-        class="absolute -top-6 bg-green-500 w-14 h-14 rounded-full flex items-center justify-center shadow-lg border-4 border-white"
+        class="absolute -top-6 rounded-full flex items-center justify-center"
       >
-        <img :src="IconScan" class="w-7 h-7" />
+        <img :src="IconScan" class="w-14 h-14" />
       </button>
 
     </div>

@@ -27,6 +27,18 @@ export const useScanStore = defineStore("scan", {
       } finally {
         this.loading = false
       }
+      // async scanTrash(image: string) {
+      //   this.loading = true
+
+      //   try {
+      //     const res = await invoke("scan_trash", { image })
+      //     this.result = res
+      //   } catch (err) {
+      //     this.error = err
+      //   } finally {
+      //     this.loading = false
+      //   }
+      // }
     }
   }
 })

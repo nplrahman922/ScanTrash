@@ -2,8 +2,12 @@
 import { storeToRefs } from "pinia"
 import { useScanStore } from "../stores/scanStore"
 
-// import icon (placeholder dulu)
-import ScanIcon from "../assets/user/Scan1.svg"
+import FokusIcon from "../assets/user/Fokus.svg"
+import LoadingIcon from "../assets/user/Loading.svg"
+import Logo from "../assets/Logo2.svg"
+import ImageIcon from "../assets/user/Image.svg"
+import FotoIcon from "../assets/user/Foto.svg"
+import ExitIcon from "../assets/user/Exit2.svg"
 
 const scanStore = useScanStore()
 const { loading, result, error } = storeToRefs(scanStore)
@@ -11,50 +15,84 @@ const { loading, result, error } = storeToRefs(scanStore)
 const handleScan = () => {
   scanStore.scanTrash()
 }
+
+import { onMounted, ref } from "vue"
+
+const videoRef = ref<HTMLVideoElement | null>(null)
+
+onMounted(async () => {
+  const stream = await navigator.mediaDevices.getUserMedia({
+    video: { facingMode: "environment" } // kamera belakang HP
+  })
+
+  if (videoRef.value) {
+    videoRef.value.srcObject = stream
+  }
+})
 </script>
 
 <template>
-  <div class="flex flex-col items-center justify-center min-h-screen bg-gray-100 p-4">
-    
-    <!-- Title -->
-    <h1 class="text-2xl font-bold mb-6">Scan Sampah</h1>
+  <div class="flex flex-col min-h-screen bg-gray-100">
 
-    <!-- Scan Button -->
-    <div
-      class="w-40 h-40 rounded-full bg-blue-500 flex items-center justify-center shadow-lg cursor-pointer"
-      @click="handleScan"
-    >
-      <img :src="ScanIcon" alt="Scan Icon"
-        class="w-16 h-16 text-white"
-        :class="{ 'animate-spin': loading }"
-      />
+    <!-- 🔝 HEADER -->
+    <div class="flex justify-center py-4">
+      <img :src="Logo" alt="Logo" class="h-10" />
     </div>
 
-    <p class="mt-4 text-gray-600">
-      Klik untuk memulai scan
-    </p>
+    <!-- 📸 CAMERA FRAME -->
+    <div class="flex justify-center px-4">
+      <div
+        class="relative w-full max-w-sm aspect-9/16 bg-black rounded-[40px] border-[6px] border-lime-400 overflow-hidden shadow-lg"
+      >
+        <!-- 🔴 nanti kamera masuk di sini -->
+        <!-- contoh: <video ref="video" autoplay class="w-full h-full object-cover" /> -->
+        <video
+          ref="videoRef"
+          autoplay
+          playsinline
+          class="w-full h-full object-cover"
+        />
 
-    <!-- Loading -->
-    <div v-if="loading" class="mt-6 text-blue-500 font-semibold">
-      Scanning...
+        <!-- Overlay fokus -->
+        <div class="absolute inset-0 flex items-center justify-center">
+          <img 
+            :src="loading ? LoadingIcon : FokusIcon"
+            :class="[
+              'w-40 h-40 transition-all duration-300',
+              loading && 'animate-spin'
+            ]" 
+          />
+        </div>
+
+        <!-- Text -->
+        <div class="absolute bottom-10 px-6 text-center">
+          <p class="text-[#FAA111] text-sm font-medium">
+            {{ loading 
+              ? "Menganalisis Sampah..." 
+              : "Silakan fokuskan kamera pada sampah agar sistem dapat mendeteksi secara otomatis"
+            }}
+          </p>
+
+          <p v-if="loading" class="text-[#FAA111] text-xs mt-2">
+            AI sedang mengecek kelayakan sampah
+          </p>
+        </div>
+      </div>
     </div>
 
-    <!-- Error -->
-    <div v-if="error" class="mt-4 text-red-500">
-      {{ error }}
+    <!-- 🔘 BOTTOM ACTION -->
+    <div class="mt-auto flex justify-between items-center px-8 py-6">
+      <img :src="ImageIcon" class="w-14 h-14" />
+
+      <!-- tombol scan -->
+      <button
+        @click="handleScan"
+        :disabled="loading"
+      >
+      <img :src="FotoIcon" class="w-14 h-14" />
+      </button>
+
+      <img :src="ExitIcon" class="w-14 h-14" />
     </div>
-
-    <!-- Result -->
-    <div
-      v-if="result"
-      class="mt-6 w-full max-w-sm bg-white p-4 rounded-xl shadow"
-    >
-      <h2 class="text-lg font-bold mb-2">Hasil Scan</h2>
-
-      <p><strong>Nama:</strong> {{ result.name }}</p>
-      <p><strong>Jenis:</strong> {{ result.type }}</p>
-      <p><strong>Harga:</strong> Rp {{ result.price }}</p>
-    </div>
-
   </div>
 </template>
