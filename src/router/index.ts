@@ -1,5 +1,6 @@
 import { createRouter, createWebHistory, RouteRecordRaw } from 'vue-router'
 import { useAuthStore } from '../stores/authStore'
+import MainLayout from '../layout/MainLayout.vue'
 import LoginView from '../views/LoginView.vue'
 import UserDashboard from '../views/UserDashboard.vue'
 import AdminDashboard from '../views/AdminDashboard.vue'
@@ -7,28 +8,34 @@ import ScanView from '../views/ScanView.vue'
 
 const routes: Array<RouteRecordRaw> = [
   {
-    path: '/',
+    path: '/login',
     name: 'Login',
     component: LoginView,
     meta: { guestOnly: true }
-  },
-  {
-    path: '/user-dashboard',
-    name: 'UserDashboard',
-    component: UserDashboard,
-    meta: { requiresAuth: true }
-  },
-  {
-    path: '/admin-dashboard',
-    name: 'AdminDashboard',
-    component: AdminDashboard,
-    meta: { requiresAuth: true }
   },
   {
     path: '/scan',
     name: 'Scan',
     component: ScanView,
     meta: { requiresAuth: true }
+  },
+  {
+    path: '/',
+    component: MainLayout,
+    children: [
+      {
+        path: 'user-dashboard',
+        name: 'UserDashboard',
+        component: UserDashboard,
+        meta: { requiresAuth: true }
+      },
+      {
+        path: 'admin-dashboard',
+        name: 'AdminDashboard',
+        component: AdminDashboard,
+        meta: { requiresAuth: true }
+      },
+    ]
   }
 ]
 
@@ -51,7 +58,7 @@ router.beforeEach(async (to, _, next) => {
 
   // kalau butuh login tapi belum login
   if (to.meta.requiresAuth && !isLoggedIn) {
-    return next('/')
+    return next('/login')
   }
 
   // kalau sudah login tapi akses login page
@@ -59,9 +66,9 @@ router.beforeEach(async (to, _, next) => {
     const profile = await authStore.fetchProfile()
 
     if (profile.role === 'admin') {
-      return next('/admin-dashboard')
+      return next({ name: 'AdminDashboard' })
     } else {
-      return next('/user-dashboard')
+      return next({ name: 'UserDashboard' })
     }
   }
 
