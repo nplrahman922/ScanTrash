@@ -3,8 +3,13 @@ import { invoke } from "@tauri-apps/api/core"
 
 interface ScanResult {
   name: string
-  type: string
+  status: string
   price: number
+  details: {
+    material: string
+    condition: string
+    cleanliness: string
+  }
 }
 
 export const useScanStore = defineStore("scan", {
@@ -15,30 +20,23 @@ export const useScanStore = defineStore("scan", {
   }),
 
   actions: {
-    async scanTrash() {
+    async scanTrash(image: string) {
       this.loading = true
       this.error = null
 
       try {
-        const data = await invoke<ScanResult>("scan_trash_command")
-        this.result = data
+        const res = await invoke<ScanResult>("scan_trash", { image })
+        this.result = res
       } catch (err: any) {
-        this.error = err.message
+        this.error = err?.message || "Scan gagal"
       } finally {
         this.loading = false
       }
-      // async scanTrash(image: string) {
-      //   this.loading = true
+    },
 
-      //   try {
-      //     const res = await invoke("scan_trash", { image })
-      //     this.result = res
-      //   } catch (err) {
-      //     this.error = err
-      //   } finally {
-      //     this.loading = false
-      //   }
-      // }
+    resetScan() {
+      this.result = null
+      this.error = null
     }
   }
 })
