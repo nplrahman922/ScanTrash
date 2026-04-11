@@ -139,46 +139,64 @@ const closeResult = () => {
     class="fixed inset-0 flex items-end justify-center bg-black/40 z-50 p-4 pb-0"
   >
     <div
-      class="w-full max-w-md bg-white rounded-t-[30px] p-6 shadow-xl animate-slideUp"
-    >
-      <div class="w-12 h-1 bg-green-400 mx-auto mb-4 rounded-full"></div>
+    v-if="result && result.length > 0"
+    class="fixed inset-0 flex items-end justify-center bg-black/40 z-50 p-4 pb-0"
+  >
+      <div class="w-full max-w-md bg-white rounded-t-[30px] p-6 shadow-xl animate-slideUp max-h-[85vh] overflow-y-auto relative">
+        
+        <div class="w-12 h-1 bg-green-400 mx-auto mb-6 rounded-full"></div>
 
-      <div class="flex items-center gap-4 mb-4">
-        <div class="w-12 h-12 bg-green-100 rounded-xl flex items-center justify-center text-xl">
-          ✅
+        <h2 class="text-center font-extrabold text-[#112F30] text-xl mb-6">
+          Terdapat {{ result.length }} Objek Terdeteksi!
+        </h2>
+
+        <div 
+          v-for="(item, index) in result" 
+          :key="index"
+          class="bg-[#F0FDF4] rounded-2xl p-5 border border-green-100 mb-6"
+        >
+          <h3 class="text-green-600 font-bold mb-4 border-b border-green-200 pb-2">
+            Objek #{{ index + 1 }}
+          </h3>
+
+          <div class="flex items-center gap-4 mb-4">
+            <div class="w-12 h-12 bg-white rounded-xl flex items-center justify-center text-xl shadow-sm">
+              🔍
+            </div>
+            <div>
+              <h2 class="font-bold text-lg text-gray-800">{{ item.trash_type }}</h2>
+            </div>
+          </div>
+
+          <div class="space-y-3 mb-4">
+            <div class="bg-white rounded-xl p-3 shadow-sm">
+              <p class="font-semibold text-xs text-gray-500">Material & Ukuran</p>
+              <p class="text-sm text-gray-800 font-medium">{{ item.material_info }}</p>
+            </div>
+
+            <div class="bg-white rounded-xl p-3 shadow-sm">
+              <p class="font-semibold text-xs text-gray-500">Kondisi ({{ item.kebersihan }})</p>
+              <p class="text-sm text-gray-800">{{ item.kondisi }}</p>
+            </div>
+          </div>
+
+          <div class="flex justify-between items-center mt-2 pt-4 border-t border-green-200">
+            <span class="font-semibold text-gray-700">Estimasi Harga</span>
+            <span class="text-green-600 font-bold text-xl">
+              Rp{{ item.estimasi_harga.toLocaleString("id-ID") }}
+            </span>
+          </div>
         </div>
 
-        <div>
-          <h2 class="font-bold text-lg">{{ result.trash_type }}</h2>
+        <div class="sticky bottom-0 bg-white pt-2 pb-4 mt-4">
+          <BaseButton
+            label="Tutup"
+            class="w-full bg-green-500 text-white hover:bg-green-600 py-3 rounded-xl font-bold"
+            @click="closeResult"
+          />
         </div>
+
       </div>
-
-      <div class="space-y-3 mb-4">
-
-        <div class="border rounded-xl p-3 bg-gray-50">
-          <p class="font-semibold text-sm">Material & Ukuran</p>
-          <p class="text-sm text-gray-600">{{ result.material_info }}</p>
-        </div>
-
-        <div class="border rounded-xl p-3 bg-gray-50">
-          <p class="font-semibold text-sm">Kondisi</p>
-          <p class="text-sm text-gray-600">{{ result.kondisi }}</p>
-        </div>
-
-      </div>
-
-      <div class="flex justify-between items-center border-t pt-4 mb-6">
-        <span class="font-semibold text-gray-700">Estimasi Harga</span>
-        <span class="text-green-600 font-bold text-xl">
-          Rp{{ result.estimasi_harga.toLocaleString("id-ID") }}
-        </span>
-      </div>
-
-      <BaseButton
-        label="Tutup"
-        class="w-full bg-green-500 text-white hover:bg-green-600 py-3 rounded-xl font-bold"
-        @click="closeResult"
-      />
     </div>
   </div>
 </template>

@@ -1,20 +1,19 @@
 import { defineStore } from "pinia"
 import { invoke } from "@tauri-apps/api/core"
 
-// 👇 1. INTERFACE DIUPDATE JADI FLAT (Sesuai Database & Rust)
 export interface ScanResult {
   trash_type: string
   label_id: string
   material_info: string
   kondisi: string
-  // kebersihan: string
+  kebersihan: string // 👈 Dikembalikan
   estimasi_harga: number
 }
 
 export const useScanStore = defineStore("scan", {
   state: () => ({
     loading: false,
-    result: null as ScanResult | null,
+    result: null as ScanResult[] | null, // 👈 SEKARANG JADI ARRAY
     error: null as string | null
   }),
 
@@ -24,14 +23,11 @@ export const useScanStore = defineStore("scan", {
       this.error = null
 
       try {
-        // 👇 2. Parameter dikirim sebagai { image } sesuai kesepakatan Rust terakhir
-        const res = await invoke<ScanResult>("scan_trash", { image })
+        // 👇 Tangkap Array dari Rust
+        const res = await invoke<ScanResult[]>("scan_trash", { image })
         this.result = res
       } catch (err: any) {
-        // Log untuk mempermudah nyari bug kalau ada error dari Rust
         console.error("Error dari Rust/Tauri:", err); 
-        
-        // Tangkap error dengan aman
         if (typeof err === 'string') {
             this.error = err; 
         } else {
