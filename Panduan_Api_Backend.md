@@ -10,6 +10,7 @@ buat di Scantrash/.env
 SUPABASE_URL=url di group
 SUPABASE_KEY=kunci juga di group
 SESSION_SECRET_KEY=Sc4nTr4sh_S3cur3_K3y_2026_Atau_Apapun_Bebas
+HF_Token=hf_tokenhuggingfaceawdfaslkfe
 ```
 
 ---
@@ -25,6 +26,7 @@ SESSION_SECRET_KEY=Sc4nTr4sh_S3cur3_K3y_2026_Atau_Apapun_Bebas
 | `get_pricelist_command` | Ambil daftar harga sampah | ✅ Ya | `Vec<Pricelist>` (array) |
 | `create_log_command` | Log aktivitas user secara online dan disimpan di supabase | ✅ Ya | `()` |
 | `write_local_log_command` | Log aktivitas user secara lokal | ❌ Tidak | `()` |
+| `scan_trash` | Pindai sampah | ✅ Ya | `Vec<ScanResult>` (array) |
 
 ---
 
@@ -441,6 +443,60 @@ async function logLokal() {
     level: 'WARNING',
     message: 'Koneksi internet user putus saat memuat gambar'
   });
+}
+```
+
+### 8️⃣ `scan_trash`
+Command ini adalah jantung utama dari aplikasi ScanTrash. Fungsinya adalah menerima gambar dari kamera HP, mengirimkannya ke AI Hugging Face untuk dianalisis, menyimpan riwayatnya ke database Supabase, dan mengembalikan hasil perhitungannya ke layar HP.
+
+**Alur Kerja:**
+1. Vue (Frontend) mengambil foto berformat JPEG Base64.
+
+2. Vue memanggil invoke("scan_trash", { image: foto_base64 }).
+
+3. Rust (Backend) otomatis mengambil JWT Token user yang sedang login dari Brankas (AppState).
+
+4. Rust membersihkan format Base64 dan mengirimnya ke AI beserta instruksi harga.
+
+5. AI merespons, Rust memecah datanya menjadi Array (mendukung banyak objek sekaligus).
+
+6. Rust menembak data tersebut ke Supabase tabel scan (menyimpan ke database).
+
+7. Rust mengembalikan Array tersebut ke Vue untuk ditampilkan di UI.
+
+**Struktur Datanya**
+```typescript
+// Apa yang akan kamu terima dari Rust
+export interface ScanResult {
+  trash_type: string;      // Contoh: "Kardus"
+  label_id: string;        // Contoh: "kardus" (lowercase_dengan_underscore)
+  material_info: string;   // Contoh: "Jumlah/Berat: 1"
+  kondisi: string;         // Contoh: "Kardus kotak lampu LED, kondisi utuh..."
+  kebersihan: string;      // Contoh: "Sesuai deteksi visual"
+  estimasi_harga: number;  // Contoh: 175 (Angka bulat, bukan teks Rp)
+}
+```
+
+**Cara menggunakannya:**
+```typescript
+import { invoke } from "@tauri-apps/api/core";
+
+// 1. Siapkan variabel gambar (Harus Base64 JPEG)
+const imageBase64 = "data:image/jpeg;base64,/9j/4AAQSkZJRgABAQ...";
+
+// 2. Tembak ke Rust
+try {
+  const hasilScan = await invoke<ScanResult[]>("scan_trash", { 
+    image: imageBase64 
+  });
+  
+  // 3. Sukses! hasilScan adalah Array.
+  console.log(`Ada ${hasilScan.length} sampah yang terdeteksi!`);
+  console.log("Total Harga Objek Pertama:", hasilScan[0].estimasi_harga);
+
+} catch (error) {
+  // 4. Gagal! Rust akan mengirimkan pesan error ke sini
+  console.error("Gagal Scan:", error);
 }
 ```
 
