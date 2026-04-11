@@ -29,4 +29,10 @@ tauri-plugin-store = "2"
 tauri-plugin-deep-link = "2"
 magic-crypt = "4.0.1"
 dotenvy_macro = "0.15.7"
+<<<<<<< Updated upstream
+=======
+chrono = "0.4.44"
+tokio = "1.51.1"
+toml = "1.1.2"
+>>>>>>> Stashed changes
 
