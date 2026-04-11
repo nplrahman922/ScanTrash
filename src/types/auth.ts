@@ -1,3 +1,11 @@
+export interface Profile {
+  id: number
+  username: string
+  email: string
+  photo_url?: string
+  role: 'admin' | 'user'
+}
+
 export interface User {
   id: number
   name: string

@@ -21,6 +21,7 @@ pub struct RuleConfig {
 #[derive(Debug, Deserialize)]
 pub struct AIImageInput {
     pub photobase64: String,
+    pub user_jwt: String, 
 }
 
 #[derive(Serialize, Deserialize, Default, Debug, Clone)]
@@ -31,14 +32,36 @@ pub struct AIItem {
     pub keterangan: String,
 }
 
+// 🌐 FUNGSI PENYELAMAT: Membakar .env ke dalam APK (Sama persis kayak di scan_handler)
+fn get_env_var(key: &str) -> String {
+    if let Ok(val) = std::env::var(key) {
+        return val;
+    }
+    
+    // Asumsi file .env ada di dalam folder src-tauri
+    // Kalau error merah pas disave, ganti jadi: "../../../../.env" (naik 4 tingkat)
+    let env_content = include_str!("../../../.env"); 
+    
+    for line in env_content.lines() {
+        let line = line.trim();
+        if line.starts_with('#') || line.is_empty() { continue; } 
+        
+        if let Some((k, v)) = line.split_once('=') {
+            if k.trim() == key {
+                return v.trim().trim_matches('"').trim_matches('\'').to_string();
+            }
+        }
+    }
+    String::new()
+}
+
 #[tauri::command]
 pub async fn analisa_image(image: AIImageInput) -> Result<Vec<AIItem>, String> {
     if !check_size_image(&image) {
         return Err("Ukuran gambar terlalu besar.".into());
     }
 
-    // [UBAHAN MINOR]: Tambah .await karena get_ai_rules sekarang ngambil dari internet
-    let config = get_ai_rules().await?;
+    let config = get_ai_rules(&image.user_jwt).await?;
     
     let rule = config
         .rules
@@ -46,7 +69,6 @@ pub async fn analisa_image(image: AIImageInput) -> Result<Vec<AIItem>, String> {
         .find(|r| r.name == "default")
         .ok_or("Rule default not found")?;
 
-    // [UBAHAN JALUR]: Sesuaikan dengan letak file api.rs barumu
     let hf_text_response = crate::api::analyze_image_with_hf(
         &image.photobase64,
         &config.prompt.system,
@@ -58,7 +80,6 @@ pub async fn analisa_image(image: AIImageInput) -> Result<Vec<AIItem>, String> {
     println!("{}", hf_text_response);
     println!("===============================");
 
-    // KODE PARSER NAUFAL DI BAWAH INI TIDAK DISENTUH SAMA SEKALI
     let mut items: Vec<AIItem> = Vec::new();
     let mut current_item = AIItem::default();
     let mut has_data = false;
@@ -124,10 +145,10 @@ fn check_size_image(image: &AIImageInput) -> bool {
     true
 }
 
-// 🌐 FUNGSI BARU: Merakit data sesuai struktur JSON dan Tabel baru
-async fn get_ai_rules() -> Result<AiConfig, String> {
-    let supabase_url = std::env::var("SUPABASE_URL").unwrap_or_else(|_| "".to_string());
-    let supabase_key = std::env::var("SUPABASE_KEY").unwrap_or_else(|_| "".to_string());
+async fn get_ai_rules(user_token: &str) -> Result<AiConfig, String> {
+    // 👇 SUDAH MEMAKAI get_env_var()
+    let supabase_url = get_env_var("SUPABASE_URL");
+    let supabase_key = get_env_var("SUPABASE_KEY");
 
     if supabase_url.is_empty() {
         return Err("URL Supabase belum disetting di .env".to_string());
@@ -135,11 +156,10 @@ async fn get_ai_rules() -> Result<AiConfig, String> {
 
     let client = Client::new();
 
-    // 1. Tarik Aturan Utama dari JSONB 'content_rules'
     let url_rules = format!("{}/rest/v1/rules?select=content_rules&order=created_at.desc&limit=1", supabase_url);
     let resp_rules = client.get(&url_rules)
         .header("apikey", &supabase_key)
-        .header("Authorization", format!("Bearer {}", supabase_key))
+        .header("Authorization", format!("Bearer {}", user_token))
         .send().await.map_err(|e| format!("Gagal ambil rules: {}", e))?;
 
     let json_rules: serde_json::Value = resp_rules.json().await.map_err(|e| format!("Gagal parse rules: {}", e))?;
@@ -147,12 +167,9 @@ async fn get_ai_rules() -> Result<AiConfig, String> {
     let mut base_system = String::new();
     let mut instruction = String::new();
 
-    // MENYESUAIKAN DENGAN STRUKTUR JSON BARU MILIKMU
     if let Some(rules_obj) = json_rules.as_array().and_then(|arr| arr.get(0)).and_then(|obj| obj.get("content_rules")) {
-        // Ambil system_prompt
         base_system = rules_obj.get("system_prompt").and_then(|s| s.as_str()).unwrap_or("").to_string();
         
-        // Ambil instruction yang ada di dalam array "rules" index ke-0
         if let Some(rule_arr) = rules_obj.get("rules").and_then(|r| r.as_array()) {
             if let Some(first_rule) = rule_arr.get(0) {
                 instruction = first_rule.get("instruction").and_then(|s| s.as_str()).unwrap_or("").to_string();
@@ -160,11 +177,10 @@ async fn get_ai_rules() -> Result<AiConfig, String> {
         }
     }
 
-    // 2. Tarik Daftar Harga dari tabel `pricelist` (Kolom: labels, price)
     let url_price = format!("{}/rest/v1/pricelist?select=labels,price", supabase_url);
     let resp_price = client.get(&url_price)
         .header("apikey", &supabase_key)
-        .header("Authorization", format!("Bearer {}", supabase_key))
+        .header("Authorization", format!("Bearer {}", user_token)) 
         .send().await.map_err(|e| format!("Gagal ambil pricelist: {}", e))?;
 
     let json_price: serde_json::Value = resp_price.json().await.map_err(|e| format!("Gagal parse pricelist: {}", e))?;
@@ -172,18 +188,14 @@ async fn get_ai_rules() -> Result<AiConfig, String> {
     let mut daftar_harga_teks = String::new();
     if let Some(price_arr) = json_price.as_array() {
         for item in price_arr {
-            // MENYESUAIKAN NAMA KOLOM BARU
             let nama = item.get("labels").and_then(|s| s.as_str()).unwrap_or("");
             let harga = item.get("price").and_then(|n| n.as_i64()).unwrap_or(0);
-            
             daftar_harga_teks.push_str(&format!("{}: Rp {}/kg\n", nama, harga));
         }
     }
 
-    // 3. SUNTIKKAN DAFTAR HARGA KE DALAM PLACEHOLDER {{ DAFTAR_HARGA }}
     let final_system_prompt = base_system.replace("{{ DAFTAR_HARGA }}", &daftar_harga_teks);
 
-    // 4. Return format struct AiConfig
     Ok(AiConfig {
         prompt: PromptConfig { system: final_system_prompt },
         rules: vec![RuleConfig {

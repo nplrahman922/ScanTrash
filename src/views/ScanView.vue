@@ -83,7 +83,6 @@ const closeResult = () => {
         class="relative w-full max-w-sm aspect-9/16 bg-black rounded-[40px] border-[6px] border-lime-400 overflow-hidden shadow-lg"
       >
         <video
-          v-if="!result"
           ref="videoRef"
           autoplay
           playsinline
@@ -151,7 +150,6 @@ const closeResult = () => {
 
         <div>
           <h2 class="font-bold text-lg">{{ result.trash_type }}</h2>
-          <p class="text-green-600 font-semibold">Layak Ditabung</p>
         </div>
       </div>
 
@@ -165,11 +163,6 @@ const closeResult = () => {
         <div class="border rounded-xl p-3 bg-gray-50">
           <p class="font-semibold text-sm">Kondisi</p>
           <p class="text-sm text-gray-600">{{ result.kondisi }}</p>
-        </div>
-
-        <div class="border rounded-xl p-3 bg-gray-50">
-          <p class="font-semibold text-sm">Kebersihan</p>
-          <p class="text-sm text-gray-600">{{ result.kebersihan }}</p>
         </div>
 
       </div>

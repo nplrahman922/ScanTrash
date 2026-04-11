@@ -24,16 +24,16 @@
           <img class="w-6 h-6 mr-3" src="../assets/Dashboard.svg" alt="Dashboard" />Dashboard
         </a>
         <a href="#" class="flex items-center py-4 px-5 text-gray-800 text-base hover:bg-gray-100 transition-colors">
-          <img class="w-6 h-6 mr-3" src="../assets/Nasabah.svg" alt="Nasabah" />Nasabah
+          <img class="w-6 h-6 mr-3" src="../assets/admin/Nasabah.svg" alt="Nasabah" />Nasabah
         </a>
         <a href="#" class="flex items-center py-4 px-5 text-gray-800 text-base hover:bg-gray-100 transition-colors">
-          <img class="w-6 h-6 mr-3" src="../assets/Katalog Harga.svg" alt="Katalog Harga" />Katalog Harga
+          <img class="w-6 h-6 mr-3" src="../assets/admin/Katalog Harga.svg" alt="Katalog Harga" />Katalog Harga
         </a>
         <a href="#" class="flex items-center py-4 px-5 text-gray-800 text-base hover:bg-gray-100 transition-colors">
           <img class="w-6 h-6 mr-3" src="../assets/Riwayat.svg" alt="Riwayat" />Riwayat
         </a>
         <a href="#" class="flex items-center py-4 px-5 text-gray-800 text-base hover:bg-gray-100 transition-colors">
-          <img class="w-6 h-6 mr-3" src="../assets/Jadwal Setor.svg" alt="Jadwal Setor" />Jadwal Setor
+          <img class="w-6 h-6 mr-3" src="../assets/admin/Jadwal Setor.svg" alt="Jadwal Setor" />Jadwal Setor
         </a>
 
         <!-- Divider -->

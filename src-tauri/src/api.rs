@@ -32,7 +32,7 @@ pub async fn analyze_image_with_hf(
 
     let client = Client::new();
 
-    // Menggunakan Endpoint Hugging Face Router API dengan provider Cohere (aya-vision-32b)
+    // Menggunakan Endpoint Hugging Face Router API dengan model Qwen
     let model_url = "https://router.huggingface.co/v1/chat/completions";
 
     // Pastikan base64 memiliki prefiks data URI yang valid
@@ -42,22 +42,22 @@ pub async fn analyze_image_with_hf(
         format!("data:image/jpeg;base64,{}", image_base64)
     };
 
+    // 🔥 TRIK HACKATHON: Gabungkan system dan user prompt agar AI tidak nge-blank
+    let combined_prompt = format!("{}\n\n{}", system_prompt, user_prompt);
+
     let payload = json!({
         "model": "Qwen/Qwen3-VL-235B-A22B-Instruct",
         "messages": [
             {
-                "role": "system",
-                "content": system_prompt
-            },
-            {
-                "role": "user",
+                "role": "user", // 👈 Semua instruksi dan daftar harga masuk ke sini
                 "content": [
-                    {"type": "text", "text": user_prompt},
+                    {"type": "text", "text": combined_prompt},
                     {"type": "image_url", "image_url": {"url": image_data}}
                 ]
             }
         ],
-        "max_tokens": 1024
+        "max_tokens": 1024,
+        "temperature": 0.3 // 👈 Tambahkan ini agar hitungan matematika AI lebih konsisten
     });
 
     let resp = client

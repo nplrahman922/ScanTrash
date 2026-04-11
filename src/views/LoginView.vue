@@ -2,7 +2,7 @@
 import { useAuthStore } from '../stores/authStore'
   
 /* gambar‑gambar dari assets */
-import logo from '../assets/Logo2.svg'
+import logo from '../assets/Logo1.svg'
 import googleIcon from '../assets/google.svg'
 
 const authStore = useAuthStore()
