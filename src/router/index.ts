@@ -4,6 +4,8 @@ import MainLayout from '../layout/MainLayout.vue'
 import LoginView from '../views/LoginView.vue'
 import UserDashboard from '../views/UserDashboard.vue'
 import WalletView from '../views/WalletView.vue'
+import TrashTypeView from '../views/TrashTypeView.vue'
+import TipsView from '../views/TipsView.vue'
 import AdminDashboard from '../views/AdminDashboard.vue'
 import ScanView from '../views/ScanView.vue'
 
@@ -34,6 +36,18 @@ const routes: Array<RouteRecordRaw> = [
         path: 'wallet',
         name: 'Wallet',
         component: WalletView,
+        meta: { requiresAuth: true }
+      },
+      {
+        path: 'jenis-sampah',
+        name: 'TrashTypeView',
+        component: TrashTypeView,
+        meta: { requiresAuth: true }
+      },
+      {
+        path: 'tips-memilah-sampah',
+        name: 'TipsMemilahSampah',
+        component: TipsView,
         meta: { requiresAuth: true }
       },
       {
