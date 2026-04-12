@@ -1,4 +1,7 @@
 <script setup lang="ts">
+import { onMounted, onUnmounted } from 'vue'
+import { useRouter } from 'vue-router'
+import { listen } from '@tauri-apps/api/event' // 🔥 Wajib di-import
 import { useAuthStore } from '../stores/authStore'
   
 /* gambar‑gambar dari assets */
@@ -6,6 +9,36 @@ import logo from '../assets/Logo1.svg'
 import googleIcon from '../assets/google.svg'
 
 const authStore = useAuthStore()
+const router = useRouter()
+let unlistenLogin: () => void
+
+// 🔥 PASANG TELINGA SAAT HALAMAN DIBUKA
+onMounted(async () => {
+  try {
+    // Mendengarkan sinyal dari Backend Rust
+    unlistenLogin = await listen('login-success', async (event) => {
+      console.log("🔊 Sinyal dari Rust diterima:", event.payload)
+
+      // 1. Suruh Pinia mengecek status brankas Rust
+      const isLoggedIn = await authStore.checkAuthStatus()
+
+      if (isLoggedIn) {
+        console.log("Brankas terkonfirmasi! Pindah ke Dashboard!")
+        // 2. Pindah halaman ke Dashboard
+        router.push('/user-dashboard')
+      }
+    })
+  } catch (error) {
+    console.error("Gagal memasang pendengar sinyal:", error)
+  }
+})
+
+// Bersihkan memori saat pindah halaman
+onUnmounted(() => {
+  if (unlistenLogin) {
+    unlistenLogin()
+  }
+})
 
 const handleLogin = async () => {
   try {
