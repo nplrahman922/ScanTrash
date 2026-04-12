@@ -18,7 +18,7 @@ const goTo = (path: string) => {
     <div class="relative flex justify-around items-center h-16">
 
       <!-- Left -->
-      <button @click="goTo('/')" class="flex flex-col items-center text-sm text-blue-500">
+      <button @click="goTo('/user-dashboard')" class="flex flex-col items-center text-sm text-blue-500">
         <img :src="IconHome" class="w-10 h-10" />
       </button>
 

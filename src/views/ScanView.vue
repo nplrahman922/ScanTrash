@@ -2,6 +2,7 @@
 import { storeToRefs } from "pinia"
 import { useScanStore } from "../stores/scanStore"
 import { onMounted, onUnmounted, ref } from "vue"
+import { useRouter } from "vue-router"
 
 import FokusIcon from "../assets/user/Fokus.svg"
 import LoadingIcon from "../assets/user/Loading.svg"
@@ -11,14 +12,19 @@ import FotoIcon from "../assets/user/Foto.svg"
 import ExitIcon from "../assets/user/Exit2.svg"
 import BaseButton from "../components/BaseButton.vue"
 
+const router = useRouter()
 const scanStore = useScanStore()
-const { loading, result, error } = storeToRefs(scanStore)
+const { result, error } = storeToRefs(scanStore)
 
 const videoRef = ref<HTMLVideoElement | null>(null)
+const fileInput = ref<HTMLInputElement | null>(null)
+
 let stream: MediaStream | null = null
 
-// 🎥 Start kamera
-onMounted(async () => {
+const currentScreen = ref<'scanning' | 'analyzing'>('scanning')
+
+// 🎥 START CAMERA
+const startCamera = async () => {
   try {
     stream = await navigator.mediaDevices.getUserMedia({
       video: { facingMode: "environment" }
@@ -30,36 +36,148 @@ onMounted(async () => {
   } catch (err) {
     console.error("Camera error:", err)
   }
-})
+}
 
-// 🧹 Stop kamera saat keluar
-onUnmounted(() => {
+// 🧹 STOP CAMERA
+const stopCamera = () => {
   stream?.getTracks().forEach(track => track.stop())
-})
+}
 
-// 📸 Capture frame dari kamera
-const captureImage = (): string => {
-  const canvas = document.createElement("canvas")
+// ⏳ WAIT VIDEO READY (🔥 FIX BUG)
+const waitForVideoReady = async () => {
+  return new Promise<void>((resolve) => {
+    const video = videoRef.value!
+    if (video.videoWidth > 0) return resolve()
+
+    video.onloadedmetadata = () => resolve()
+  })
+}
+
+// 📸 CAPTURE
+const captureImage = async (): Promise<string> => {
+  await waitForVideoReady()
+
   const video = videoRef.value!
-
-  canvas.width = video.videoWidth
-  canvas.height = video.videoHeight
-
+  const canvas = document.createElement("canvas")
   const ctx = canvas.getContext("2d")!
-  ctx.drawImage(video, 0, 0)
 
-  return canvas.toDataURL("image/png")
+  const MAX_SIZE = 800
+  let w = video.videoWidth
+  let h = video.videoHeight
+
+  if (w > h) {
+    h *= MAX_SIZE / w
+    w = MAX_SIZE
+  } else {
+    w *= MAX_SIZE / h
+    h = MAX_SIZE
+  }
+
+  canvas.width = w
+  canvas.height = h
+
+  ctx.drawImage(video, 0, 0, w, h)
+
+  return canvas.toDataURL("image/jpeg", 0.7)
 }
 
-// 🚀 Trigger scan
-const handleScan = () => {
-  const image = captureImage()
-  scanStore.scanTrash(image)
+// 🚀 SCAN CAMERA
+const handleScan = async () => {
+  try {
+    currentScreen.value = "analyzing"
+
+    const image = await captureImage()
+    stopCamera()
+
+    await scanStore.scanTrash(image)
+
+  } catch (err) {
+    console.error(err)
+  } finally {
+    currentScreen.value = "scanning"
+    startCamera() // 🔥 FIX: hidupkan lagi kamera
+  }
 }
 
-// ❌ Tutup modal
+// 📁 GALLERY
+const triggerGallery = () => {
+  fileInput.value?.click()
+}
+
+const handleGalleryUpload = async (event: Event) => {
+  const target = event.target as HTMLInputElement
+  const file = target.files?.[0]
+  if (!file) return
+
+  try {
+    currentScreen.value = "analyzing"
+    stopCamera()
+
+    const base64 = await compressFileImage(file)
+    await scanStore.scanTrash(base64)
+
+  } catch (err) {
+    console.error(err)
+  } finally {
+    currentScreen.value = "scanning"
+    startCamera()
+  }
+}
+
+// 🧠 COMPRESS IMAGE
+const compressFileImage = (file: File): Promise<string> => {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader()
+
+    reader.onload = (e) => {
+      const img = new Image()
+
+      img.onload = () => {
+        const canvas = document.createElement("canvas")
+        const ctx = canvas.getContext("2d")!
+
+        const MAX_SIZE = 800
+        let w = img.width
+        let h = img.height
+
+        if (w > h) {
+          h *= MAX_SIZE / w
+          w = MAX_SIZE
+        } else {
+          w *= MAX_SIZE / h
+          h = MAX_SIZE
+        }
+
+        canvas.width = w
+        canvas.height = h
+
+        ctx.drawImage(img, 0, 0, w, h)
+
+        resolve(canvas.toDataURL("image/jpeg", 0.7))
+      }
+
+      img.onerror = reject
+      img.src = e.target?.result as string
+    }
+
+    reader.onerror = reject
+    reader.readAsDataURL(file)
+  })
+}
+
+// ❌ CLOSE RESULT
 const closeResult = () => {
   scanStore.resetScan()
+  startCamera()
+}
+
+onMounted(startCamera)
+onUnmounted(stopCamera)
+
+const handleExit = () => {
+  scanStore.resetScan()
+  stopCamera()
+  router.back()
 }
 </script>
 
@@ -88,10 +206,10 @@ const closeResult = () => {
         <!-- 🎯 OVERLAY -->
         <div class="absolute inset-0 flex items-center justify-center">
           <img
-            :src="loading ? LoadingIcon : FokusIcon"
+            :src="currentScreen === 'analyzing' ? LoadingIcon : FokusIcon"
             :class="[
               'w-40 h-40 transition-all duration-300',
-              loading && 'animate-spin'
+              currentScreen === 'analyzing' && 'animate-spin'
             ]"
           />
         </div>
@@ -100,13 +218,13 @@ const closeResult = () => {
         <div class="absolute bottom-10 px-6 text-center">
           <p class="text-[#FAA111] text-sm font-medium">
             {{
-              loading
+              currentScreen === "analyzing"
                 ? "Menganalisis Sampah..."
                 : "Silakan fokuskan kamera pada sampah agar sistem dapat mendeteksi secara otomatis"
             }}
           </p>
 
-          <p v-if="loading" class="text-[#FAA111] text-xs mt-2">
+          <p v-if="currentScreen === 'analyzing'" class="text-[#FAA111] text-xs mt-2">
             AI sedang mengecek kelayakan sampah
           </p>
 
@@ -119,18 +237,39 @@ const closeResult = () => {
 
     <!-- 🔘 ACTION -->
     <div class="mt-auto flex justify-between items-center px-8 py-6">
-      <img :src="ImageIcon" class="w-14 h-14" />
 
+      <!-- 📁 GALLERY -->
+      <img 
+        :src="ImageIcon" 
+        class="w-14 h-14 cursor-pointer active:scale-95 transition"
+        @click="triggerGallery"
+      />
+
+      <!-- 📸 SNAP -->
       <button
         @click="handleScan"
-        :disabled="loading"
+        :disabled="currentScreen === 'analyzing'"
         class="disabled:opacity-50 active:scale-95 transition"
       >
         <img :src="FotoIcon" class="w-16 h-16" />
       </button>
 
-      <img :src="ExitIcon" class="w-14 h-14" />
+      <!-- ❌ EXIT -->
+      <img 
+        :src="ExitIcon" 
+        class="w-14 h-14 cursor-pointer active:scale-95 transition"
+        @click="handleExit"
+      />
     </div>
+
+    <!-- 📁 INPUT FILE (HIDDEN) -->
+    <input 
+      type="file" 
+      ref="fileInput" 
+      accept="image/*" 
+      @change="handleGalleryUpload"
+      hidden
+    />
   </div>
 
   <!-- 🟢 RESULT MODAL -->
@@ -206,5 +345,16 @@ const closeResult = () => {
 
 .animate-slideUp {
   animation: slideUp 0.3s ease-out;
+}
+
+/* tambahan biar smooth UX */
+video {
+  backface-visibility: hidden;
+}
+
+/* efek klik halus */
+button:active img,
+img:active {
+  transform: scale(0.95);
 }
 </style>

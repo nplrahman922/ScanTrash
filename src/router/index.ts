@@ -3,6 +3,7 @@ import { useAuthStore } from '../stores/authStore'
 import MainLayout from '../layout/MainLayout.vue'
 import LoginView from '../views/LoginView.vue'
 import UserDashboard from '../views/UserDashboard.vue'
+import WalletView from '../views/WalletView.vue'
 import AdminDashboard from '../views/AdminDashboard.vue'
 import ScanView from '../views/ScanView.vue'
 
@@ -27,6 +28,12 @@ const routes: Array<RouteRecordRaw> = [
         path: 'user-dashboard',
         name: 'UserDashboard',
         component: UserDashboard,
+        meta: { requiresAuth: true }
+      },
+      {
+        path: 'wallet',
+        name: 'Wallet',
+        component: WalletView,
         meta: { requiresAuth: true }
       },
       {
