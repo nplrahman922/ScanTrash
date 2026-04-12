@@ -1,19 +1,20 @@
 import { defineStore } from "pinia"
 import { invoke } from "@tauri-apps/api/core"
 
+// 👇 1. Samakan persis dengan struct ScanResult di Rust
 export interface ScanResult {
   trash_type: string
   label_id: string
   material_info: string
   kondisi: string
-  kebersihan: string // 👈 Dikembalikan
+  kebersihan: string
   estimasi_harga: number
 }
 
 export const useScanStore = defineStore("scan", {
   state: () => ({
     loading: false,
-    result: null as ScanResult[] | null, // 👈 SEKARANG JADI ARRAY
+    result: null as ScanResult[] | null, // 👇 2. Jadikan Array
     error: null as string | null
   }),
 
@@ -23,7 +24,7 @@ export const useScanStore = defineStore("scan", {
       this.error = null
 
       try {
-        // 👇 Tangkap Array dari Rust
+        // 👇 3. Tangkap sebagai Array
         const res = await invoke<ScanResult[]>("scan_trash", { image })
         this.result = res
       } catch (err: any) {

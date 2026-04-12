@@ -20,27 +20,56 @@
 
       <!-- Menu Items -->
       <nav class="flex-1 flex flex-col py-5">
-        <a href="#" class="flex items-center py-4 px-5 text-gray-800 text-base hover:bg-gray-100 transition-colors">
-          <img class="w-6 h-6 mr-3" src="../assets/Dashboard.svg" alt="Dashboard" />Dashboard
-        </a>
-        <a href="#" class="flex items-center py-4 px-5 text-gray-800 text-base hover:bg-gray-100 transition-colors">
-          <img class="w-6 h-6 mr-3" src="../assets/admin/Nasabah.svg" alt="Nasabah" />Nasabah
-        </a>
-        <a href="#" class="flex items-center py-4 px-5 text-gray-800 text-base hover:bg-gray-100 transition-colors">
-          <img class="w-6 h-6 mr-3" src="../assets/admin/Katalog Harga.svg" alt="Katalog Harga" />Katalog Harga
-        </a>
-        <a href="#" class="flex items-center py-4 px-5 text-gray-800 text-base hover:bg-gray-100 transition-colors">
-          <img class="w-6 h-6 mr-3" src="../assets/Riwayat.svg" alt="Riwayat" />Riwayat
-        </a>
-        <a href="#" class="flex items-center py-4 px-5 text-gray-800 text-base hover:bg-gray-100 transition-colors">
-          <img class="w-6 h-6 mr-3" src="../assets/admin/Jadwal Setor.svg" alt="Jadwal Setor" />Jadwal Setor
-        </a>
 
-        <!-- Divider -->
+        <router-link 
+          to="/dashboard"
+          class="flex items-center py-4 px-5 text-gray-800 text-base hover:bg-gray-100 transition-colors"
+          @click="closeSidebar"
+        >
+          <img class="w-6 h-6 mr-3" src="../assets/Dashboard.svg" />
+          Dashboard
+        </router-link>
+
+        <router-link 
+          to="/nasabah"
+          class="flex items-center py-4 px-5 text-gray-800 text-base hover:bg-gray-100"
+          @click="closeSidebar"
+        >
+          <img class="w-6 h-6 mr-3" src="../assets/admin/Nasabah.svg" />
+          Nasabah
+        </router-link>
+
+        <router-link 
+          to="/katalog"
+          class="flex items-center py-4 px-5 hover:bg-gray-100"
+          @click="closeSidebar"
+        >
+          <img class="w-6 h-6 mr-3" src="../assets/admin/Katalog Harga.svg" />
+          Katalog Harga
+        </router-link>
+
+        <router-link 
+          to="/riwayat"
+          class="flex items-center py-4 px-5 hover:bg-gray-100"
+          @click="closeSidebar"
+        >
+          <img class="w-6 h-6 mr-3" src="../assets/Riwayat.svg" />
+          Riwayat
+        </router-link>
+
+        <router-link 
+          to="/jadwal"
+          class="flex items-center py-4 px-5 hover:bg-gray-100"
+          @click="closeSidebar"
+        >
+          <img class="w-6 h-6 mr-3" src="../assets/admin/Jadwal Setor.svg" />
+          Jadwal Setor
+        </router-link>
+
         <div class="h-px bg-gray-300 my-5"></div>
 
-        <!-- Logout Button -->
         <LogoutButton />
+
       </nav>
     </div>
   </div>

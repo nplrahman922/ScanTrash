@@ -14,7 +14,7 @@ const isAdmin = computed(() => userProfile.value?.role === "admin")
 </script>
 
 <template>
-  <header class="flex items-center justify-between px-4 py-6 bg-white shadow-md">
+  <header class="sticky top-0 z-50 flex items-center justify-between px-4 py-6 bg-white shadow-md">
     
     <SideBarAdmin v-if="isAdmin" />
     <SideBarUser v-else />

@@ -19,23 +19,41 @@
       </div>
 
       <!-- Menu Items -->
-      <nav class="flex-1 flex flex-col py-5">
-        <a href="#" class="flex items-center py-4 px-5 text-gray-800 text-base hover:bg-gray-100 transition-colors">
-          <img class="w-6 h-6 mr-3" src="../assets/Dashboard.svg" alt="Dashboard" />Dashboard
-        </a>
-        <a href="#" class="flex items-center py-4 px-5 text-gray-800 text-base hover:bg-gray-100 transition-colors">
-          <img class="w-6 h-6 mr-3" src="../assets/user/Jenis Sampah.svg" alt="Jenis Sampah" />Jenis Sampah
-        </a>
-        <a href="#" class="flex items-center py-4 px-5 text-gray-800 text-base hover:bg-gray-100 transition-colors">
-          <img class="w-6 h-6 mr-3" src="../assets/user/Tips Memilah.svg" alt="Tips Memilah" />Tips Memilah
-        </a>
+     <nav class="flex-1 flex flex-col py-5">
 
-        <!-- Divider -->
-        <div class="h-px bg-gray-300 my-5"></div>
+      <router-link 
+        to="/user-dashboard"
+        class="flex items-center py-4 px-5 text-gray-800 text-base hover:bg-gray-100 transition-colors"
+        @click="closeSidebar"
+      >
+        <img class="w-6 h-6 mr-3" src="../assets/Dashboard.svg" />
+        Dashboard
+      </router-link>
 
-        <!-- Logout Button -->
-        <LogoutButton />
-      </nav>
+      <router-link 
+        to="/jenis-sampah"
+        class="flex items-center py-4 px-5 text-gray-800 text-base hover:bg-gray-100 transition-colors"
+        @click="closeSidebar"
+      >
+        <img class="w-6 h-6 mr-3" src="../assets/user/Jenis Sampah.svg" />
+        Jenis Sampah
+      </router-link>
+
+      <router-link 
+        to="/tips-memilah-sampah"
+        class="flex items-center py-4 px-5 text-gray-800 text-base hover:bg-gray-100 transition-colors"
+        @click="closeSidebar"
+      >
+        <img class="w-6 h-6 mr-3" src="../assets/user/Tips Memilah.svg" />
+        Tips Memilah
+      </router-link>
+
+      <!-- Divider -->
+      <div class="h-px bg-gray-300 my-5"></div>
+
+      <LogoutButton />
+
+    </nav>
     </div>
   </div>
 </template>
