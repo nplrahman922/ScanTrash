@@ -25,7 +25,8 @@ HF_Token=hf_tokenhuggingfaceawdfaslkfe
 | `logout_command` | Logout user | ✅ Ya | `()` |
 | `get_pricelist_command` | Ambil daftar harga sampah | ✅ Ya | `Vec<Pricelist>` (array) |
 | `create_log_command` | Log aktivitas user secara online dan disimpan di supabase | ✅ Ya | `()` |
-| `write_local_log_command` | Log aktivitas user secara lokal | ❌ Tidak | `()` |
+| `write_local_log_command` | Log aktivitas user secara lokal (dengan timestamp otomatis) | ❌ Tidak | `()` |
+| `read_local_log_command` | Baca seluruh isi file log lokal dari HP | ❌ Tidak | `String` |
 | `scan_trash` | Pindai sampah | ✅ Ya | `Vec<ScanResult>` (array) |
 
 ---
@@ -434,6 +435,9 @@ async function logErrorAI(errorMsg: string) {
 
 - ❌ PENTING: Jangan gunakan ini untuk mencatat penambahan saldo, perubahan harga, atau hasil tebakan AI. (Gunakan create_log_command untuk urusan uang/data penting).
 
+> [!NOTE]
+> **Timestamp Otomatis:** Backend sudah otomatis menambahkan timestamp ke setiap baris log dalam format `[YYYY-MM-DD HH:MM:SS]`. Frontend **tidak perlu** mengirimkan waktu. Format log di file: `[2026-04-28 00:22:41] [INFO] pesan kamu`.
+
 **Code Example:**
 ```typescript
 import { invoke } from '@tauri-apps/api/core';
@@ -446,23 +450,73 @@ async function logLokal() {
 }
 ```
 
+---
+
+### 7b️⃣ `read_local_log_command`
+
+**Fungsi:** Membaca seluruh isi file log lokal (`scantrash_local.log`) yang tersimpan di memori internal HP.
+
+**Parameter:** Tidak ada
+
+**Return Type:** `string` (seluruh isi log sebagai satu string panjang)
+
+**Kapan digunakan:**
+- Untuk halaman debug / admin tools yang menampilkan riwayat log.
+- Untuk mengambil log dan mengirimkannya ke server saat user melaporkan bug.
+- Untuk keperluan developer melihat log langsung dari dalam aplikasi.
+
+**Code Example:**
+```typescript
+import { invoke } from '@tauri-apps/api/core';
+
+async function tampilkanLog() {
+  try {
+    const isiLog = await invoke<string>('read_local_log_command');
+    
+    if (!isiLog) {
+      console.log('File log masih kosong.');
+      return;
+    }
+
+    // Pisah per baris untuk ditampilkan di UI
+    const baris = isiLog.split('\n').filter(b => b.trim() !== '');
+    console.log(`Total ${baris.length} baris log.`);
+    console.log(baris);
+    
+  } catch (error) {
+    console.error('Gagal membaca log lokal:', error);
+  }
+}
+```
+
+**Cara Akses Log dari Luar Aplikasi (via ADB):**
+```powershell
+# Baca langsung di terminal
+& "$env:LOCALAPPDATA\Android\Sdk\platform-tools\adb.exe" shell "run-as com.users.scantrash cat scantrash_local.log"
+
+# Download ke file .txt di komputer
+& "$env:LOCALAPPDATA\Android\Sdk\platform-tools\adb.exe" shell "run-as com.users.scantrash cat scantrash_local.log" > log_hp_saya.txt
+```
+
+> [!IMPORTANT]
+> File log disimpan di direktori privat Android (`app_local_data_dir()`). File ini hanya dapat diakses oleh proses aplikasi itu sendiri. Di luar ADB (mode debug), file ini tidak dapat dibaca oleh aplikasi lain di HP.
+
 ### 8️⃣ `scan_trash`
 Command ini adalah jantung utama dari aplikasi ScanTrash. Fungsinya adalah menerima gambar dari kamera HP, mengirimkannya ke AI Hugging Face untuk dianalisis, menyimpan riwayatnya ke database Supabase, dan mengembalikan hasil perhitungannya ke layar HP.
 
+> [!IMPORTANT]
+> **Perubahan Keamanan (Update Terbaru):** Pesan error yang dikembalikan ke frontend sekarang **bersifat generik** untuk melindungi infrastruktur server. Kamu tidak akan lagi melihat stack trace atau URL Supabase di pesan error. Detail error teknis hanya tersimpan di `scantrash_local.log` di HP.
+
 **Alur Kerja:**
-1. Vue (Frontend) mengambil foto berformat JPEG Base64.
-
-2. Vue memanggil invoke("scan_trash", { image: foto_base64 }).
-
-3. Rust (Backend) otomatis mengambil JWT Token user yang sedang login dari Brankas (AppState).
-
-4. Rust membersihkan format Base64 dan mengirimnya ke AI beserta instruksi harga.
-
-5. AI merespons, Rust memecah datanya menjadi Array (mendukung banyak objek sekaligus).
-
-6. Rust menembak data tersebut ke Supabase tabel scan (menyimpan ke database).
-
-7. Rust mengembalikan Array tersebut ke Vue untuk ditampilkan di UI.
+1. Vue (Frontend) mengambil foto berformat Base64 (JPEG/PNG/WEBP).
+2. Vue memanggil `invoke("scan_trash", { image: foto_base64 })`.
+3. Backend memvalidasi ukuran gambar (max ~5MB / 7.000.000 karakter). Jika terlalu besar, langsung return error.
+4. Backend memvalidasi format prefix Base64 (hanya `jpeg`, `png`, `webp` yang diizinkan).
+5. Rust (Backend) otomatis mengambil JWT Token user yang sedang login dari Brankas (AppState).
+6. Rust mengirimnya ke AI beserta instruksi harga dari Supabase.
+7. AI merespons, Rust memecah datanya menjadi Array (mendukung banyak objek sekaligus).
+8. Rust menembak data tersebut ke Supabase tabel scan (menyimpan ke database).
+9. Rust mengembalikan Array tersebut ke Vue untuk ditampilkan di UI.
 
 **Struktur Datanya**
 ```typescript
@@ -481,7 +535,7 @@ export interface ScanResult {
 ```typescript
 import { invoke } from "@tauri-apps/api/core";
 
-// 1. Siapkan variabel gambar (Harus Base64 JPEG)
+// 1. Siapkan variabel gambar (JPEG/PNG/WEBP Base64)
 const imageBase64 = "data:image/jpeg;base64,/9j/4AAQSkZJRgABAQ...";
 
 // 2. Tembak ke Rust
@@ -495,10 +549,29 @@ try {
   console.log("Total Harga Objek Pertama:", hasilScan[0].estimasi_harga);
 
 } catch (error) {
-  // 4. Gagal! Rust akan mengirimkan pesan error ke sini
+  // 4. Gagal! Pesan error yang diterima bersifat generik (tidak ada URL/stack trace)
+  // Contoh pesan error yang mungkin muncul:
+  // "Payload gambar terlalu besar. Maksimal ~5MB."
+  // "Format gambar tidak diizinkan. Gunakan JPG, PNG, atau WEBP."
+  // "Koneksi gagal. Pastikan internet Anda aktif."
+  // "Gagal menyimpan data scan ke sistem."
+  // "Sesi habis atau user belum login!"
   console.error("Gagal Scan:", error);
+  showErrorToast(String(error));
 }
 ```
+
+**Error yang Mungkin Dikembalikan ke Frontend:**
+| Pesan Error | Penyebab |
+|---|---|
+| `"Payload gambar terlalu besar. Maksimal ~5MB."` | Gambar base64 >7juta karakter |
+| `"Format gambar tidak diizinkan. Gunakan JPG, PNG, atau WEBP."` | Format gambar bukan jpeg/png/webp |
+| `"Koneksi gagal. Pastikan internet Anda aktif."` | Gagal ambil rules/pricelist dari Supabase |
+| `"Gagal terhubung ke layanan AI."` | Koneksi ke Hugging Face gagal/timeout |
+| `"Layanan AI sedang mengalami gangguan."` | HF API error (4xx/5xx) |
+| `"Gagal menyimpan data scan ke sistem."` | Insert ke DB Supabase gagal |
+| `"Sesi habis atau user belum login!"` | Token tidak ada di AppState |
+| `"Data kosong, AI gagal membaca sampah."` | AI tidak mengenali objek sama sekali |
 
 ---
 
@@ -832,5 +905,12 @@ Jika ada issue atau pertanyaan:
 
 ---
 
-**Last Updated:** Latest - Sesuai dengan kode backend saat ini
+**Last Updated:** 2026-04-28 — Refactoring & Security Audit Sprint
 **Status:** Ready for Frontend Integration ✅
+
+### Changelog
+- **2026-04-28:** 
+  - Ditambahkan `read_local_log_command` (baca log dari HP)
+  - `write_local_log_command`: Timestamp `[YYYY-MM-DD HH:MM:SS]` sekarang otomatis ditambahkan oleh backend, frontend tidak perlu mengirim waktu.
+  - `scan_trash`: Pesan error ke frontend sekarang bersifat generik (tidak bocorkan URL/stack trace). Ditambahkan validasi ukuran gambar (max ~5MB) dan validasi format (hanya jpeg/png/webp). Ditambahkan tabel Error Reference.
+  - Internal logic `scan_trash` dipindah ke `scan_service.rs` (tidak berdampak pada cara penggunaan dari Vue).
