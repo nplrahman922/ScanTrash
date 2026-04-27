@@ -33,6 +33,7 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             handlers::log_handler::create_log_command,
             handlers::local_log_handler::write_local_log_command,
+            handlers::local_log_handler::read_local_log_command,
             handlers::pricelist_handler::get_pricelist_command,
             handlers::auth_handler::get_google_auth_url_command,
             handlers::auth_handler::check_auth_status_command,

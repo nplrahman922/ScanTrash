@@ -55,13 +55,14 @@ fn get_env_var(key: &str) -> String {
     String::new()
 }
 
-#[tauri::command]
-pub async fn analisa_image(image: AIImageInput) -> Result<Vec<AIItem>, String> {
+use crate::services::local_log_service::write_local_log;
+
+pub async fn analisa_image(app_handle: &tauri::AppHandle, image: AIImageInput) -> Result<Vec<AIItem>, String> {
     if !check_size_image(&image) {
         return Err("Ukuran gambar terlalu besar.".into());
     }
 
-    let config = get_ai_rules(&image.user_jwt).await?;
+    let config = get_ai_rules(app_handle, &image.user_jwt).await?;
     
     let rule = config
         .rules
@@ -70,15 +71,16 @@ pub async fn analisa_image(image: AIImageInput) -> Result<Vec<AIItem>, String> {
         .ok_or("Rule default not found")?;
 
     let hf_text_response = crate::api::analyze_image_with_hf(
+        app_handle,
         &image.photobase64,
         &config.prompt.system,
         &rule.instruction,
     )
     .await?;
 
-    println!("=== HASIL KEMBALIAN AI ASLI ===");
-    println!("{}", hf_text_response);
-    println!("===============================");
+    write_local_log(app_handle, "INFO", "=== HASIL KEMBALIAN AI ASLI ===");
+    write_local_log(app_handle, "INFO", &hf_text_response);
+    write_local_log(app_handle, "INFO", "===============================");
 
     let mut items: Vec<AIItem> = Vec::new();
     let mut current_item = AIItem::default();
@@ -145,24 +147,34 @@ fn check_size_image(image: &AIImageInput) -> bool {
     true
 }
 
-async fn get_ai_rules(user_token: &str) -> Result<AiConfig, String> {
+async fn get_ai_rules(app_handle: &tauri::AppHandle, user_token: &str) -> Result<AiConfig, String> {
     // 👇 SUDAH MEMAKAI get_env_var()
     let supabase_url = get_env_var("SUPABASE_URL");
     let supabase_key = get_env_var("SUPABASE_KEY");
 
     if supabase_url.is_empty() {
-        return Err("URL Supabase belum disetting di .env".to_string());
+        write_local_log(app_handle, "ERROR", "URL Supabase belum disetting di .env");
+        return Err("Terjadi kesalahan konfigurasi server.".to_string());
     }
 
-    let client = Client::new();
+    let client = Client::builder()
+        .timeout(std::time::Duration::from_secs(15))
+        .build()
+        .unwrap_or_else(|_| Client::new());
 
     let url_rules = format!("{}/rest/v1/rules?select=content_rules&order=created_at.desc&limit=1", supabase_url);
     let resp_rules = client.get(&url_rules)
         .header("apikey", &supabase_key)
         .header("Authorization", format!("Bearer {}", user_token))
-        .send().await.map_err(|e| format!("Gagal ambil rules: {}", e))?;
+        .send().await.map_err(|e| {
+            write_local_log(app_handle, "ERROR", &format!("Gagal ambil rules: {}", e));
+            "Koneksi gagal. Pastikan internet Anda aktif.".to_string()
+        })?;
 
-    let json_rules: serde_json::Value = resp_rules.json().await.map_err(|e| format!("Gagal parse rules: {}", e))?;
+    let json_rules: serde_json::Value = resp_rules.json().await.map_err(|e| {
+        write_local_log(app_handle, "ERROR", &format!("Gagal parse rules: {}", e));
+        "Terjadi kesalahan saat membaca aturan server.".to_string()
+    })?;
     
     let mut base_system = String::new();
     let mut instruction = String::new();
@@ -181,9 +193,15 @@ async fn get_ai_rules(user_token: &str) -> Result<AiConfig, String> {
     let resp_price = client.get(&url_price)
         .header("apikey", &supabase_key)
         .header("Authorization", format!("Bearer {}", user_token)) 
-        .send().await.map_err(|e| format!("Gagal ambil pricelist: {}", e))?;
+        .send().await.map_err(|e| {
+            write_local_log(app_handle, "ERROR", &format!("Gagal ambil pricelist: {}", e));
+            "Koneksi gagal. Pastikan internet Anda aktif.".to_string()
+        })?;
 
-    let json_price: serde_json::Value = resp_price.json().await.map_err(|e| format!("Gagal parse pricelist: {}", e))?;
+    let json_price: serde_json::Value = resp_price.json().await.map_err(|e| {
+        write_local_log(app_handle, "ERROR", &format!("Gagal parse pricelist: {}", e));
+        "Terjadi kesalahan saat memuat daftar harga.".to_string()
+    })?;
     
     let mut daftar_harga_teks = String::new();
     if let Some(price_arr) = json_price.as_array() {
