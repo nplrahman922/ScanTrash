@@ -166,13 +166,13 @@ async fn get_ai_rules(app_handle: &tauri::AppHandle, user_token: &str) -> Result
     let resp_rules = client.get(&url_rules)
         .header("apikey", &supabase_key)
         .header("Authorization", format!("Bearer {}", user_token))
-        .send().await.map_err(|e| {
-            write_local_log(app_handle, "ERROR", &format!("Gagal ambil rules: {}", e));
+        .send().await.map_err(|_e| {
+            write_local_log(app_handle, "ERROR", "Gagal mengirim request untuk mengambil rules dari server.");
             "Koneksi gagal. Pastikan internet Anda aktif.".to_string()
         })?;
 
-    let json_rules: serde_json::Value = resp_rules.json().await.map_err(|e| {
-        write_local_log(app_handle, "ERROR", &format!("Gagal parse rules: {}", e));
+    let json_rules: serde_json::Value = resp_rules.json().await.map_err(|_e| {
+        write_local_log(app_handle, "ERROR", "Gagal parsing JSON dari respons rules server.");
         "Terjadi kesalahan saat membaca aturan server.".to_string()
     })?;
     
@@ -193,13 +193,13 @@ async fn get_ai_rules(app_handle: &tauri::AppHandle, user_token: &str) -> Result
     let resp_price = client.get(&url_price)
         .header("apikey", &supabase_key)
         .header("Authorization", format!("Bearer {}", user_token)) 
-        .send().await.map_err(|e| {
-            write_local_log(app_handle, "ERROR", &format!("Gagal ambil pricelist: {}", e));
+        .send().await.map_err(|_e| {
+            write_local_log(app_handle, "ERROR", "Gagal mengirim request untuk mengambil pricelist dari server.");
             "Koneksi gagal. Pastikan internet Anda aktif.".to_string()
         })?;
 
-    let json_price: serde_json::Value = resp_price.json().await.map_err(|e| {
-        write_local_log(app_handle, "ERROR", &format!("Gagal parse pricelist: {}", e));
+    let json_price: serde_json::Value = resp_price.json().await.map_err(|_e| {
+        write_local_log(app_handle, "ERROR", "Gagal parsing JSON dari respons pricelist server.");
         "Terjadi kesalahan saat memuat daftar harga.".to_string()
     })?;
     

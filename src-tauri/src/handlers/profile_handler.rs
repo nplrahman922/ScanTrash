@@ -17,10 +17,10 @@ pub async fn get_profile_command(app_handle: AppHandle) -> Result<Profile, Strin
                     local_log_service::write_local_log(&app_handle, "INFO", &format!("Berhasil menarik data profil untuk user: {}", profile.username));
                     Ok(profile)
                 },
-                Err(e) => {
-                    // [ERROR] Catat log error dari Supabase, lalu lempar pesan error ke Frontend
-                    local_log_service::write_local_log(&app_handle, "ERROR", &format!("Gagal menarik profil: {}", e));
-                    Err(e)
+                Err(_e) => {
+                    // [ERROR] Catat log generik, lalu lempar pesan generik ke Frontend
+                    local_log_service::write_local_log(&app_handle, "ERROR", "Gagal menarik data profil dari server.");
+                    Err("Gagal memuat profil. Silakan coba lagi.".to_string())
                 }
             }
         },

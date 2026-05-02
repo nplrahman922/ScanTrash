@@ -96,8 +96,8 @@ pub async fn analyze_image_with_hf(
         .json(&payload)
         .send()
         .await
-        .map_err(|e| {
-            write_local_log(app_handle, "ERROR", &format!("Gagal memanggil API HF: {}", e));
+        .map_err(|_e| {
+            write_local_log(app_handle, "ERROR", "Gagal mengirim request ke API HF.");
             "Gagal terhubung ke layanan AI.".to_string()
         })?;
 
@@ -110,8 +110,8 @@ pub async fn analyze_image_with_hf(
     let result_json: serde_json::Value = resp
         .json()
         .await
-        .map_err(|e| {
-            write_local_log(app_handle, "ERROR", &format!("Gagal parsing JSON dari HF: {}", e));
+        .map_err(|_e| {
+            write_local_log(app_handle, "ERROR", "Gagal parsing JSON dari respons API HF.");
             "Terjadi kesalahan saat membaca respons AI.".to_string()
         })?;
 
@@ -131,7 +131,7 @@ pub async fn analyze_image_with_hf(
                 }
             }
         }
-        write_local_log(app_handle, "ERROR", &format!("Format respons HF tidak dikenali: {}", result_json));
+        write_local_log(app_handle, "ERROR", "Format respons HF tidak dikenali (struktur JSON tidak sesuai).");
         Err("Format respons AI tidak valid atau tidak dikenali.".to_string())
     }
 }

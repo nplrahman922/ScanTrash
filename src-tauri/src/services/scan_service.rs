@@ -62,14 +62,14 @@ pub async fn save_scan_to_supabase(app_handle: &AppHandle, scan_data: &[ScanResu
         .json(&payload)
         .send()
         .await
-        .map_err(|e| {
-            write_local_log(app_handle, "ERROR", &format!("Koneksi DB gagal saat menyimpan scan: {}", e));
+        .map_err(|_e| {
+            write_local_log(app_handle, "ERROR", "Koneksi ke server database gagal saat menyimpan scan.");
             "Gagal menghubungi server database.".to_string()
         })?;
 
     if !resp.status().is_success() {
-        let err = resp.text().await.unwrap_or_default();
-        write_local_log(app_handle, "ERROR", &format!("Gagal Insert Scan ke DB: {}", err));
+        let _err = resp.text().await.unwrap_or_default();
+        write_local_log(app_handle, "ERROR", "Server database menolak data scan (HTTP error).");
         return Err("Gagal menyimpan data scan ke sistem.".into());
     }
     Ok(())
