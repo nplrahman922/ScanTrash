@@ -65,9 +65,9 @@ pub async fn analyze_image_with_hf(
         format!("data:image/jpeg;base64,{}", image_base64)
     };
 
-    // 3. Timeout 30 detik
+    // 3. Timeout 60 detik
     let client = Client::builder()
-        .timeout(std::time::Duration::from_secs(30))
+        .timeout(std::time::Duration::from_secs(60))
         .build()
         .unwrap_or_else(|_| Client::new());
 
