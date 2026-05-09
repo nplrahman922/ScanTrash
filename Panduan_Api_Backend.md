@@ -28,6 +28,9 @@ HF_Token=hf_tokenhuggingfaceawdfaslkfe
 | `write_local_log_command` | Log aktivitas user secara lokal (dengan timestamp otomatis) | ❌ Tidak | `()` |
 | `read_local_log_command` | Baca seluruh isi file log lokal dari HP | ❌ Tidak | `String` |
 | `scan_trash` | Pindai sampah | ✅ Ya | `Vec<ScanResult>` (array) |
+| `get_balance_command` | Ambil saldo nasabah terkini | ✅ Ya | `i64` (number) |
+| `get_savings_history_command` | Ambil riwayat transaksi nasabah | ✅ Ya | `Vec<SavingsRecord>` (array) |
+| `get_schedules_command` | Ambil jadwal setor (buka/tutup) | ✅ Ya | `Vec<Schedule>` (array) |
 
 ---
 
@@ -307,13 +310,11 @@ async function handleLogout() {
 
 **Response Type:**
 ```typescript
-interface Pricelist {
-  id: string;              // UUID
-  trash_type: string;      // Jenis sampah (Plastik, Kertas, dll)
-  description?: string;    // Deskripsi
-  price_per_kg: number;    // Harga per kg
-  unit: string;            // Satuan (kg, pcs, dll)
-  category?: string;       // Kategori
+interface PricelistItem {
+  id?: string;             // UUID
+  labels: string;          // Jenis sampah (Plastik, Kertas, dll)
+  price: number;           // Harga per kg (angka)
+  img_url?: string;        // URL gambar icon sampah
   created_at?: string;     // ISO datetime
 }
 ```
@@ -327,20 +328,18 @@ interface Pricelist {
 ```typescript
 import { invoke } from '@tauri-apps/api/core';
 
-interface Pricelist {
-  id: string;
-  trash_type: string;
-  description?: string;
-  price_per_kg: number;
-  unit: string;
-  category?: string;
+interface PricelistItem {
+  id?: string;
+  labels: string;
+  price: number;
+  img_url?: string;
   created_at?: string;
 }
 
 async function loadPricelist() {
   try {
     // Return ARRAY of pricelists
-    const pricelists = await invoke<Pricelist[]>('get_pricelist_command');
+    const pricelists = await invoke<PricelistItem[]>('get_pricelist_command');
     
     console.log("Pricelist items:", pricelists.length);
     
@@ -349,7 +348,10 @@ async function loadPricelist() {
     
     // Display di UI
     pricelists.forEach(item => {
-      console.log(`${item.trash_type}: Rp${item.price_per_kg}/${item.unit}`);
+      console.log(`${item.labels}: Rp${item.price}/kg`);
+      if (item.img_url) {
+        console.log("Gambar icon tersedia di:", item.img_url);
+      }
     });
   } catch (error) {
     console.error("Error loading pricelist:", error);
@@ -572,6 +574,121 @@ try {
 | `"Gagal menyimpan data scan ke sistem."` | Insert ke DB Supabase gagal |
 | `"Sesi habis atau user belum login!"` | Token tidak ada di AppState |
 | `"Data kosong, AI gagal membaca sampah."` | AI tidak mengenali objek sama sekali |
+
+---
+
+### 9️⃣ `get_balance_command`
+**Fungsi:** Mengambil saldo terkini. 
+- Jika User yang memanggil: akan selalu mengambil saldonya sendiri.
+- Jika Admin yang memanggil: bisa mengambil saldo miliknya sendiri, atau saldo nasabah tertentu dengan mengirimkan `targetUserId`.
+
+**Parameter:**
+```typescript
+{
+  targetUserId?: string | null // Opsional. Kosongkan (null) untuk user biasa. Isi dengan UUID untuk Admin melihat saldo nasabah.
+}
+```
+
+**Return Type:** `i64` (number)
+
+**Code Example:**
+```typescript
+import { invoke } from "@tauri-apps/api/core";
+
+// 1. Contoh Nasabah Biasa
+async function cekSaldoSendiri() {
+  try {
+    const saldo = await invoke<number>("get_balance_command", { targetUserId: null });
+    console.log("Saldo Terkini:", saldo);
+  } catch (error) {
+    console.error("Gagal ambil saldo:", error);
+  }
+}
+
+// 2. Contoh Admin Melihat Saldo Nasabah
+async function cekSaldoNasabah(uid: string) {
+  try {
+    const saldo = await invoke<number>("get_balance_command", { targetUserId: uid });
+    console.log("Saldo Nasabah:", saldo);
+  } catch (error) {
+    console.error("Gagal ambil saldo nasabah:", error);
+  }
+}
+```
+
+---
+
+### 🔟 `get_savings_history_command`
+**Fungsi:** Mengambil 50 riwayat transaksi terbaru dari tabel `savings`. Mendukung penggunaan oleh User (melihat riwayatnya sendiri) maupun Admin (melihat riwayat nasabah tertentu).
+
+**Parameter:**
+```typescript
+{
+  targetUserId?: string | null // Opsional. Kosongkan (null) untuk user biasa. Isi UUID untuk Admin.
+}
+```
+
+**Return Type:** `Vec<SavingsRecord>` (Array)
+
+**Response Type:**
+```typescript
+interface SavingsRecord {
+  id?: string;
+  user_id?: string;
+  amount_before?: number; // Saldo sebelum transaksi
+  amount?: number;        // Saldo setelah transaksi (naik/turun)
+  keterangan?: string;    // Catatan (opsional)
+  created_at?: string;    // Waktu transaksi
+}
+```
+*💡 Hint untuk UI:* Jika `amount >= amount_before`, berarti tipe transaksinya adalah "Setoran" (Income). Jika sebaliknya, berarti "Penarikan" (Expense).
+
+**Code Example:**
+```typescript
+import { invoke } from "@tauri-apps/api/core";
+
+// 1. User melihat riwayatnya sendiri
+const riwayatku = await invoke<SavingsRecord[]>("get_savings_history_command", { targetUserId: null });
+
+// 2. Admin melihat riwayat nasabah spesifik
+const riwayatNasabah = await invoke<SavingsRecord[]>("get_savings_history_command", { targetUserId: "uuid-nasabah-tersebut" });
+```
+
+---
+
+### 1️⃣1️⃣ `get_schedules_command`
+**Fungsi:** Mengambil daftar jadwal buka/tutup lapak (tabel `tanggal`).
+
+**Parameter:** Tidak ada
+
+**Return Type:** `Vec<Schedule>` (Array)
+
+**Response Type:**
+```typescript
+interface ScheduleItem {
+  id_tanggal?: string;
+  waktu_buka: string;     // Contoh: "09:00:00+00"
+  lokasi: string;         // Lokasi lapak
+  waktu_tutup: string;    // Contoh: "16:00:00+00"
+  tanggal: string;        // Contoh: "2026-05-10"
+}
+```
+
+**Code Example:**
+```typescript
+import { invoke } from "@tauri-apps/api/core";
+
+async function ambilJadwal() {
+  try {
+    const jadwal = await invoke<ScheduleItem[]>("get_schedules_command");
+    if (jadwal.length > 0) {
+      console.log("Jadwal Terdekat:", jadwal[0].tanggal);
+    }
+  } catch (error) {
+    console.error("Gagal memuat jadwal:", error);
+  }
+}
+```
 
 ---
 
@@ -905,10 +1022,16 @@ Jika ada issue atau pertanyaan:
 
 ---
 
-**Last Updated:** 2026-04-28 — Refactoring & Security Audit Sprint
+**Last Updated:** 2026-05-09 — User Feature Completion (Wallet & Schedules)
 **Status:** Ready for Frontend Integration ✅
 
 ### Changelog
+- **2026-05-09:** 
+  - **NEW API:** `get_balance_command` ditambahkan untuk mengambil saldo realtime dari Supabase.
+  - **NEW API:** `get_savings_history_command` ditambahkan untuk mengambil 50 riwayat transaksi (`savings`) terbaru.
+  - **NEW API:** `get_schedules_command` ditambahkan untuk membaca jadwal setor dari tabel `tanggal`.
+  - **BUG FIX:** Memperbaiki bug pada layanan AI di mana JWT yang expired diabaikan dan membuat scan bingung tanpa sistem rules.
+  - **BUG FIX:** Memperbaiki `get_pricelist_command` yang salah menggunakan anon_key untuk autentikasi dan memperbaiki hilangnya kolom `img_url`.
 - **2026-04-28:** 
   - Ditambahkan `read_local_log_command` (baca log dari HP)
   - `write_local_log_command`: Timestamp `[YYYY-MM-DD HH:MM:SS]` sekarang otomatis ditambahkan oleh backend, frontend tidak perlu mengirim waktu.

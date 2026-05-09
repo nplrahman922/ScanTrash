@@ -12,7 +12,12 @@
     </div>
 
     <!-- 🟢 BALANCE CARD -->
+    <div v-if="userStore.loadingBalance" class="animate-pulse bg-gray-300 rounded-2xl h-24 w-full" />
+    <div v-else-if="userStore.errorBalance" class="bg-red-100 text-red-600 text-sm px-4 py-3 rounded-xl">
+      ⚠️ Gagal memuat saldo: {{ userStore.errorBalance }}
+    </div>
     <BalanceCard
+      v-else
       :balance="userStore.balance"
       :icon="walletIcon"
       bgColor="bg-[#4E5D4A]"
@@ -21,7 +26,6 @@
 
     <!-- 📊 RIWAYAT -->
     <div>
-
       <h2 class="font-semibold mb-3">Riwayat Transaksi</h2>
 
       <!-- 📅 FILTER TANGGAL -->
@@ -33,8 +37,33 @@
         />
       </div>
 
+      <!-- ⏳ LOADING SKELETON RIWAYAT -->
+      <div v-if="userStore.loadingHistory" class="space-y-3">
+        <div
+          v-for="n in 3"
+          :key="n"
+          class="animate-pulse bg-gray-300 rounded-xl h-16 w-full"
+        />
+      </div>
+
+      <!-- ❌ ERROR RIWAYAT -->
+      <div
+        v-else-if="userStore.errorHistory"
+        class="bg-red-100 text-red-600 text-sm px-4 py-3 rounded-xl"
+      >
+        ⚠️ Gagal memuat riwayat: {{ userStore.errorHistory }}
+      </div>
+
+      <!-- 📭 KOSONG -->
+      <div
+        v-else-if="filteredTransactions.length === 0"
+        class="text-center text-gray-400 text-sm py-8"
+      >
+        Belum ada transaksi.
+      </div>
+
       <!-- 📋 LIST TRANSAKSI -->
-      <div class="space-y-3">
+      <div v-else class="space-y-3">
         <TransactionCard
           v-for="trx in filteredTransactions"
           :key="trx.id"
@@ -51,7 +80,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed } from "vue"
+import { ref, computed, onMounted } from "vue"
 import { useRouter } from "vue-router"
 import { useUserStore } from "../stores/userStore"
 
@@ -65,6 +94,12 @@ import walletIcon from "../assets/user/Dompet1.svg"
 const router = useRouter()
 const userStore = useUserStore()
 
+// 🚀 FETCH DATA SAAT HALAMAN DIBUKA (saldo + riwayat paralel)
+onMounted(() => {
+  userStore.fetchBalance()
+  userStore.fetchHistory()
+})
+
 // 📅 FILTER DATE
 const selectedDate = ref("")
 
@@ -76,7 +111,7 @@ const filteredTransactions = computed(() => {
   )
 })
 
-// 🧠 FORMAT DATE (biar cocok sama data kamu)
+// 🧠 FORMAT DATE (biar cocok sama data yang sudah di-map)
 const formatDate = (date: string) => {
   const d = new Date(date)
   return `${d.getDate()}/${d.getMonth() + 1}/${d.getFullYear()}`
@@ -84,6 +119,6 @@ const formatDate = (date: string) => {
 
 // 🔙 BACK
 const goBack = () => {
-  router.push("/user-dashboard") // ke beranda
+  router.push("/user-dashboard")
 }
-</script>
+</script>

@@ -16,7 +16,10 @@ pub fn generate_google_auth_url() -> String {
 // 2. Fungsi untuk "Ping" (Cek apakah access_token masih hidup)
 pub async fn validate_token(access_token: &str) -> bool {
     let config = AppConfig::init();
-    let client = Client::new();
+    let client = Client::builder()
+        .timeout(std::time::Duration::from_secs(15))
+        .build()
+        .unwrap_or_else(|_| Client::new());
     let url = format!("{}/auth/v1/user", config.supabase_url);
 
     // Kita tembak endpoint /user bawaan Supabase
@@ -35,7 +38,10 @@ pub async fn validate_token(access_token: &str) -> bool {
 // 3. Fungsi untuk menukar refresh_token dengan access_token baru
 pub async fn refresh_access_token(refresh_token: &str) -> Result<(String, String), String> {
     let config = AppConfig::init();
-    let client = Client::new();
+    let client = Client::builder()
+        .timeout(std::time::Duration::from_secs(15))
+        .build()
+        .unwrap_or_else(|_| Client::new());
     let url = format!("{}/auth/v1/token?grant_type=refresh_token", config.supabase_url);
 
     let res = client.post(&url)
@@ -47,7 +53,7 @@ pub async fn refresh_access_token(refresh_token: &str) -> Result<(String, String
         .map_err(|e| e.to_string())?;
 
     if res.status().is_success() {
-        let body: Value = res.json().await.map_err(|e| e.to_string())?;
+        let body: Value = res.json().await.map_err(|_e| "Gagal membaca respons token baru dari server.".to_string())?;
         
         // Ambil token baru dari response JSON Supabase
         let new_access = body["access_token"].as_str().unwrap_or("").to_string();
@@ -66,7 +72,10 @@ pub async fn refresh_access_token(refresh_token: &str) -> Result<(String, String
 // Fungsi untuk mematikan sesi di server Supabase
 pub async fn logout_from_server(access_token: &str) {
     let config = AppConfig::init();
-    let client = Client::new();
+    let client = Client::builder()
+        .timeout(std::time::Duration::from_secs(10))
+        .build()
+        .unwrap_or_else(|_| Client::new());
     let url = format!("{}/auth/v1/logout", config.supabase_url);
 
     // Kita kirim request POST kosong, yang penting ada Header Authorization-nya
@@ -79,7 +88,10 @@ pub async fn logout_from_server(access_token: &str) {
 
 pub async fn get_user_id(access_token: &str) -> Result<String, String> {
     let config = crate::config::AppConfig::init();
-    let client = reqwest::Client::new();
+    let client = reqwest::Client::builder()
+        .timeout(std::time::Duration::from_secs(15))
+        .build()
+        .unwrap_or_else(|_| reqwest::Client::new());
     let url = format!("{}/auth/v1/user", config.supabase_url);
 
     let res = client.get(&url)
@@ -87,10 +99,10 @@ pub async fn get_user_id(access_token: &str) -> Result<String, String> {
         .header("Authorization", format!("Bearer {}", access_token))
         .send()
         .await
-        .map_err(|e| format!("Gagal menghubungi Supabase: {}", e))?;
+        .map_err(|_e| "Koneksi ke server autentikasi gagal.".to_string())?;
 
     if res.status().is_success() {
-        let body: serde_json::Value = res.json().await.map_err(|e| e.to_string())?;
+        let body: serde_json::Value = res.json().await.map_err(|_e| "Token tidak valid atau respons tidak bisa dibaca.".to_string())?;
         
         // Ambil ID dari response JSON
         if let Some(id) = body["id"].as_str() {

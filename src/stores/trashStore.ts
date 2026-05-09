@@ -1,41 +1,50 @@
 import { defineStore } from "pinia"
+import { invoke } from "@tauri-apps/api/core"
+
+// Tipe data dari backend (sesuai struct Pricelist di Rust)
+interface PricelistItem {
+  id?: string
+  labels: string
+  price: number
+  img_url?: string
+  created_at?: string
+}
+
+// Tipe data yang dipakai TrashTypeCard di UI
+interface TrashType {
+  id: string
+  name: string
+  price: number
+  image: string
+}
 
 export const useTrashStore = defineStore("trash", {
   state: () => ({
-    trashTypes: [
-      {
-        id: 1,
-        name: "Plastik (PET)",
-        price: 4000,
-        image: "/src/assets/sampah/plastik.png" // opsional
-      },
-      {
-        id: 2,
-        name: "Kertas/Kardus",
-        price: 2500,
-        image: "" // ❌ belum ada gambar
-      },
-      {
-        id: 3,
-        name: "Logam/Besi",
-        price: 8000,
-        image: ""
-      },
-      {
-        id: 4,
-        name: "Kaca/Beling",
-        price: 1500,
-        image: ""
-      }
-    ]
+    trashTypes: [] as TrashType[],
+    loading: false,
+    error: "" as string,
   }),
 
-//   // 🔥 nanti tinggal pakai ini kalau dari backend
-//   actions: {
-//     async fetchTrashTypes() {
-//       // contoh:
-//       // const res = await axios.get('/trash-types')
-//       // this.trashTypes = res.data
-//     }
-//   }
-})
+  actions: {
+    async fetchTrashTypes() {
+      this.loading = true
+      this.error = ""
+      try {
+        const items = await invoke<PricelistItem[]>("get_pricelist_command")
+
+        // Map PricelistItem → TrashType (format yang dipahami TrashTypeCard)
+        this.trashTypes = items.map((item) => ({
+          id: item.id ?? Math.random().toString(),
+          name: item.labels,
+          price: item.price,
+          image: item.img_url ?? "",
+        }))
+      } catch (err: any) {
+        this.error = err as string
+        console.error("[trashStore] Gagal ambil pricelist:", err)
+      } finally {
+        this.loading = false
+      }
+    },
+  },
+})

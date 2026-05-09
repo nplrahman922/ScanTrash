@@ -171,6 +171,11 @@ async fn get_ai_rules(app_handle: &tauri::AppHandle, user_token: &str) -> Result
             "Koneksi gagal. Pastikan internet Anda aktif.".to_string()
         })?;
 
+    if !resp_rules.status().is_success() {
+        write_local_log(app_handle, "ERROR", "Akses ditolak saat mengambil rules AI (Sesi kedaluwarsa atau token tidak valid).");
+        return Err("Sesi Anda telah berakhir. Silakan login kembali.".to_string());
+    }
+
     let json_rules: serde_json::Value = resp_rules.json().await.map_err(|_e| {
         write_local_log(app_handle, "ERROR", "Gagal parsing JSON dari respons rules server.");
         "Terjadi kesalahan saat membaca aturan server.".to_string()
@@ -197,6 +202,11 @@ async fn get_ai_rules(app_handle: &tauri::AppHandle, user_token: &str) -> Result
             write_local_log(app_handle, "ERROR", "Gagal mengirim request untuk mengambil pricelist dari server.");
             "Koneksi gagal. Pastikan internet Anda aktif.".to_string()
         })?;
+
+    if !resp_price.status().is_success() {
+        write_local_log(app_handle, "ERROR", "Akses ditolak saat mengambil pricelist AI (Sesi kedaluwarsa atau token tidak valid).");
+        return Err("Sesi Anda telah berakhir. Silakan login kembali.".to_string());
+    }
 
     let json_price: serde_json::Value = resp_price.json().await.map_err(|_e| {
         write_local_log(app_handle, "ERROR", "Gagal parsing JSON dari respons pricelist server.");

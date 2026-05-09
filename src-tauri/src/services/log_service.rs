@@ -32,14 +32,13 @@ pub async fn insert_log_to_supabase(level: &str, message: &str, jwt_token: &str)
         .json(&log_data) // Data yang dirakit otomatis tadi dikirim ke sini
         .send()
         .await
-        .map_err(|e| format!("Gagal mengirim request: {}", e))?;
+        .map_err(|_e| "Koneksi ke server log Supabase gagal.".to_string())?;
 
     if res.status().is_success() {
         println!("✅ [RUST] Log berhasil dicatat di Supabase!");
         Ok(())
     } else {
         println!("❌ [RUST] Gagal mencatat log di Supabase!");
-        let err_text = res.text().await.unwrap_or_default();
-        Err(format!("Supabase error: {}", err_text))
+        Err("Gagal menyimpan log ke server.".to_string())
     }
 }

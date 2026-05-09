@@ -6,3 +6,5 @@ pub mod profile_service;
 pub mod local_log_service;
 pub mod ai_services;
 pub mod scan_service;
+pub mod savings_service;
+pub mod schedule_service;

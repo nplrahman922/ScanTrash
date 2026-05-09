@@ -54,6 +54,7 @@
 </template>
 
 <script setup lang="ts">
+import { onMounted } from "vue"
 import { useUserStore } from "../stores/userStore"
 import { useRouter } from "vue-router"
 
@@ -78,4 +79,11 @@ const goToScan = () => {
 const goToWallet = () => {
   router.push("/wallet")
 }
+
+// 🚀 Fetch data saat dashboard dibuka
+onMounted(() => {
+  userStore.fetchBalance()
+  userStore.fetchHistory()
+  userStore.fetchSchedule()
+})
 </script>
