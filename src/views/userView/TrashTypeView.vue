@@ -19,7 +19,7 @@
 </template>
 
 <script setup lang="ts">
-import { useTrashStore } from "../stores/trashStore"
+import { useTrashStore } from "../../stores/trashStore"
 import TrashTypeCard from "../components/TrashTypeCard.vue"
 
 const trashStore = useTrashStore()

@@ -1,13 +1,11 @@
 <script setup lang="ts">
-import { ref, computed } from "vue"
+import { ref } from "vue"
 import { storeToRefs } from "pinia"
 import { useAuthStore } from "../stores/authStore"
 import BaseButton from "../components/BaseButton.vue"
 
 const authStore = useAuthStore()
 const { userProfile } = storeToRefs(authStore)
-
-const isAdmin = computed(() => userProfile.value?.role === "admin")
 
 const isProfileOpen = ref(false)
 
@@ -21,81 +19,113 @@ const closeProfile = () => {
 </script>
 
 <template>
-  <div class="relative">
-    
-    <!-- Avatar -->
-    <img
-      class="cursor-pointer w-12 h-12 rounded-full border-2 border-gray-300"
-      :src="userProfile?.photo_url || '/placeholder.svg'"
-      alt="Profile"
-      @click="toggleProfile"
-    />
+  <!-- Avatar Button -->
+  <img
+    class="cursor-pointer w-12 h-12 rounded-full border-2"
+    :style="{ borderColor: 'var(--color-primary)' }"
+    :src="userProfile?.photo_url || '/placeholder.svg'"
+    alt="Profile"
+    @click="toggleProfile"
+  />
 
-    <!-- Popup Profile -->
+  <!-- Overlay Backdrop -->
+  <div
+    v-if="isProfileOpen"
+    class="fixed inset-0 bg-black bg-opacity-50 z-40"
+    @click="closeProfile"
+  />
+
+  <!-- Profile Card Popup -->
+  <div
+    v-if="isProfileOpen && userProfile"
+    class="fixed inset-0 flex items-center justify-center z-50 p-4"
+  >
     <div
-      v-if="userProfile && isProfileOpen"
-      class="absolute right-0 top-14 w-72 bg-white rounded-xl p-6 shadow-lg border z-50"
+      class="bg-white rounded-2xl p-8 w-full max-w-sm shadow-2xl border-2"
+      :style="{ borderColor: 'var(--color-tertiary)' }"
+      @click.stop
     >
-      <h2 class="text-xl font-bold text-gray-800 mb-4">
-        {{ isAdmin ? "Informasi Admin" : "Informasi Profil" }}
-      </h2>
-
-      <!-- Info (row) -->
-      <div class="flex items-center space-x-4">
-        
-        <!-- Foto -->
+      <!-- Profile Picture (Circular) -->
+      <div class="flex justify-center mb-6">
         <img
           v-if="userProfile.photo_url"
           :src="userProfile.photo_url"
           alt="Profile"
-          :class="[
-            'w-16 h-16 rounded-full border-2',
-            isAdmin ? 'border-purple-500' : 'border-green-500'
-          ]"
+          class="w-24 h-24 rounded-full border-4"
+          :style="{ borderColor: 'var(--color-primary)' }"
         />
-
-        <!-- Default -->
         <div
           v-else
-          class="w-16 h-16 rounded-full bg-gray-300 flex items-center justify-center"
+          class="w-24 h-24 rounded-full flex items-center justify-center text-5xl"
+          :style="{ backgroundColor: 'var(--color-secondary)' }"
         >
-          <span class="text-2xl">
-            {{ isAdmin ? "👑" : "👤" }}
-          </span>
-        </div>
-
-        <!-- Text -->
-        <div>
-          <p class="font-semibold text-gray-800">
-            {{ userProfile.username }}
-          </p>
-
-          <p class="text-gray-600 text-sm">
-            {{ userProfile.email }}
-          </p>
-
-          <span
-            :class="[
-              'inline-block mt-1 px-2 py-1 text-xs font-bold rounded-full',
-              isAdmin
-                ? 'bg-purple-100 text-purple-700'
-                : 'bg-blue-100 text-blue-700'
-            ]"
-          >
-            {{ userProfile.role }}
-          </span>
+          👤
         </div>
       </div>
 
-      <!-- Button (bawah) -->
-      <div class="mt-4">
-        <BaseButton
-          label="Tutup"
-          class="w-full bg-green-500 text-white hover:bg-green-600"
-          @click="closeProfile"
-        />
+      <!-- Name -->
+      <h2 class="text-center text-xl font-bold mb-2">
+        {{ userProfile.username }}
+      </h2>
+
+      <!-- Email -->
+      <p class="text-center text-gray-600 text-sm mb-2">
+        {{ userProfile.email }}
+      </p>
+
+      <!-- Terkoneksi dengan -->
+      <p class="text-center text-sm font-medium mb-4" style="color: var(--color-secondary);">
+        Terhubung dengan Google
+      </p>
+
+      <!-- Divider -->
+      <hr class="my-4" :style="{ borderColor: 'var(--color-tertiary)' }" />
+
+      <!-- Info Section -->
+      <div class="space-y-3 mb-6">
+        <!-- Bergabung -->
+        <div class="flex items-center space-x-3 text-gray-600">
+          <span class="text-lg">📅</span>
+          <div>
+            <p class="text-xs text-gray-500">Bergabung</p>
+            <p class="text-sm font-medium text-gray-800">
+              30 Januari 2026
+            </p>
+          </div>
+        </div>
+
+        <!-- Status Akun -->
+        <div class="flex items-center space-x-3">
+          <span class="text-lg">👤</span>
+          <div class="flex-1">
+            <p class="text-xs text-gray-500">Status Akun</p>
+            <p
+              class="text-sm font-medium"
+              :style="{ color: 'var(--color-primary)' }"
+            >
+              Aktif
+            </p>
+          </div>
+        </div>
       </div>
 
+      <!-- Close Button -->
+      <BaseButton
+        label="Tutup"
+        class="w-full text-white font-semibold py-2 rounded-lg transition-all"
+        :style="{ backgroundColor: 'var(--color-primary)' }"
+        @click="closeProfile"
+      />
     </div>
   </div>
 </template>
+
+<style scoped>
+.border-2 {
+  border-width: 2px;
+}
+
+.border-4 {
+  border-width: 4px;
+}
+</style>

@@ -53,14 +53,14 @@
 <script setup lang="ts">
 import { ref, computed } from "vue"
 import { useRouter } from "vue-router"
-import { useUserStore } from "../stores/userStore"
+import { useUserStore } from "../../stores/userStore"
 
 import BalanceCard from "../components/BalanceCard.vue"
 import TransactionCard from "../components/TransactionCard.vue"
 
 // ICON
 import backIcon from "../assets/kembali.svg"
-import walletIcon from "../assets/user/Dompet1.svg"
+import walletIcon from "../assets/userAset/Dompet1.svg"
 
 const router = useRouter()
 const userStore = useUserStore()

@@ -11,6 +11,6 @@ import Footer from '../components/Footer.vue'
       <router-view />
     </main>
 
-    <Footer />
+    <Footer class="pb-[env(safe-area-inset-bottom)]"></Footer>
   </div>
 </template>

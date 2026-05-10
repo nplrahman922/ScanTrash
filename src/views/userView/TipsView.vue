@@ -22,7 +22,7 @@
 </template>
 
 <script setup lang="ts">
-import { useTipsStore } from "../stores/tipsStore"
+import { useTipsStore } from "../../stores/tipsStore"
 import TipsCard from "../components/TipsCard.vue"
 
 const tipsStore = useTipsStore()

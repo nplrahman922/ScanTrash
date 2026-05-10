@@ -4,3 +4,5 @@ pub mod pricelist_handler;
 pub mod profile_handler;
 pub mod local_log_handler;
 pub mod scan_handler;
+pub mod savings_handler;
+pub mod schedule_handler;

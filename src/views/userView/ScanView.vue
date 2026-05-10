@@ -1,15 +1,15 @@
 <script setup lang="ts">
 import { storeToRefs } from "pinia"
-import { useScanStore } from "../stores/scanStore"
+import { useScanStore } from "../../stores/scanStore"
 import { onMounted, onUnmounted, ref } from "vue"
 import { useRouter } from "vue-router"
 
-import FokusIcon from "../assets/user/Fokus.svg"
-import LoadingIcon from "../assets/user/Loading.svg"
+import FokusIcon from "../assets/userAset/Fokus.svg"
+import LoadingIcon from "../assets/userAset/Loading.svg"
 import Logo from "../assets/Logo2.svg"
-import ImageIcon from "../assets/user/Image.svg"
-import FotoIcon from "../assets/user/Foto.svg"
-import ExitIcon from "../assets/user/Exit2.svg"
+import ImageIcon from "../assets/userAset/Image.svg"
+import FotoIcon from "../assets/userAset/Foto.svg"
+import ExitIcon from "../assets/userAset/Exit2.svg"
 import BaseButton from "../components/BaseButton.vue"
 
 const router = useRouter()

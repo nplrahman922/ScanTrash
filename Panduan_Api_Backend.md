@@ -10,6 +10,7 @@ buat di Scantrash/.env
 SUPABASE_URL=url di group
 SUPABASE_KEY=kunci juga di group
 SESSION_SECRET_KEY=Sc4nTr4sh_S3cur3_K3y_2026_Atau_Apapun_Bebas
+HF_Token=hf_tokenhuggingfaceawdfaslkfe
 ```
 
 ---
@@ -24,10 +25,12 @@ SESSION_SECRET_KEY=Sc4nTr4sh_S3cur3_K3y_2026_Atau_Apapun_Bebas
 | `logout_command` | Logout user | ✅ Ya | `()` |
 | `get_pricelist_command` | Ambil daftar harga sampah | ✅ Ya | `Vec<Pricelist>` (array) |
 | `create_log_command` | Log aktivitas user secara online dan disimpan di supabase | ✅ Ya | `()` |
-| `write_local_log_command` | Log aktivitas user secara lokal | ❌ Tidak | `()` |
-| `read_local_log_command` | Baca log dari Memori HP | ❌ Tidak | `String` |
-| `read_local_log_command` | Baca log dari Memori HP | ❌ Tidak | `String` |
-| `analyze_trash_command` | Deteksi gambar sampah via AI | ✅ Ya | `ScanResult` (Object) |
+| `write_local_log_command` | Log aktivitas user secara lokal (dengan timestamp otomatis) | ❌ Tidak | `()` |
+| `read_local_log_command` | Baca seluruh isi file log lokal dari HP | ❌ Tidak | `String` |
+| `scan_trash` | Pindai sampah | ✅ Ya | `Vec<ScanResult>` (array) |
+| `get_balance_command` | Ambil saldo nasabah terkini | ✅ Ya | `i64` (number) |
+| `get_savings_history_command` | Ambil riwayat transaksi nasabah | ✅ Ya | `Vec<SavingsRecord>` (array) |
+| `get_schedules_command` | Ambil jadwal setor (buka/tutup) | ✅ Ya | `Vec<Schedule>` (array) |
 
 ---
 
@@ -307,13 +310,11 @@ async function handleLogout() {
 
 **Response Type:**
 ```typescript
-interface Pricelist {
-  id: string;              // UUID
-  trash_type: string;      // Jenis sampah (Plastik, Kertas, dll)
-  description?: string;    // Deskripsi
-  price_per_kg: number;    // Harga per kg
-  unit: string;            // Satuan (kg, pcs, dll)
-  category?: string;       // Kategori
+interface PricelistItem {
+  id?: string;             // UUID
+  labels: string;          // Jenis sampah (Plastik, Kertas, dll)
+  price: number;           // Harga per kg (angka)
+  img_url?: string;        // URL gambar icon sampah
   created_at?: string;     // ISO datetime
 }
 ```
@@ -327,20 +328,18 @@ interface Pricelist {
 ```typescript
 import { invoke } from '@tauri-apps/api/core';
 
-interface Pricelist {
-  id: string;
-  trash_type: string;
-  description?: string;
-  price_per_kg: number;
-  unit: string;
-  category?: string;
+interface PricelistItem {
+  id?: string;
+  labels: string;
+  price: number;
+  img_url?: string;
   created_at?: string;
 }
 
 async function loadPricelist() {
   try {
     // Return ARRAY of pricelists
-    const pricelists = await invoke<Pricelist[]>('get_pricelist_command');
+    const pricelists = await invoke<PricelistItem[]>('get_pricelist_command');
     
     console.log("Pricelist items:", pricelists.length);
     
@@ -349,7 +348,10 @@ async function loadPricelist() {
     
     // Display di UI
     pricelists.forEach(item => {
-      console.log(`${item.trash_type}: Rp${item.price_per_kg}/${item.unit}`);
+      console.log(`${item.labels}: Rp${item.price}/kg`);
+      if (item.img_url) {
+        console.log("Gambar icon tersedia di:", item.img_url);
+      }
     });
   } catch (error) {
     console.error("Error loading pricelist:", error);
@@ -435,6 +437,9 @@ async function logErrorAI(errorMsg: string) {
 
 - ❌ PENTING: Jangan gunakan ini untuk mencatat penambahan saldo, perubahan harga, atau hasil tebakan AI. (Gunakan create_log_command untuk urusan uang/data penting).
 
+> [!NOTE]
+> **Timestamp Otomatis:** Backend sudah otomatis menambahkan timestamp ke setiap baris log dalam format `[YYYY-MM-DD HH:MM:SS]`. Frontend **tidak perlu** mengirimkan waktu. Format log di file: `[2026-04-28 00:22:41] [INFO] pesan kamu`.
+
 **Code Example:**
 ```typescript
 import { invoke } from '@tauri-apps/api/core';
@@ -449,153 +454,243 @@ async function logLokal() {
 
 ---
 
-### 8️⃣ read_local_log_command (Debug Tool)
-**Fungsi:** Membaca seluruh isi log dari memori HP untuk ditampilkan di UI.
+### 7b️⃣ `read_local_log_command`
 
-**Return:** String (Isi teks log)
+**Fungsi:** Membaca seluruh isi file log lokal (`scantrash_local.log`) yang tersimpan di memori internal HP.
 
-**Kapan digunakan:** Di halaman "Settings" atau "Developer Mode" untuk melihat riwayat error tanpa kabel USB.
+**Parameter:** Tidak ada
+
+**Return Type:** `string` (seluruh isi log sebagai satu string panjang)
+
+**Kapan digunakan:**
+- Untuk halaman debug / admin tools yang menampilkan riwayat log.
+- Untuk mengambil log dan mengirimkannya ke server saat user melaporkan bug.
+- Untuk keperluan developer melihat log langsung dari dalam aplikasi.
 
 **Code Example:**
 ```typescript
-async function showDebugLogs() {
-  const logContent = await invoke<string>('read_local_log_command');
-  console.log("Isi Log HP:", logContent);
-}
-```
-
-### 9️⃣ analyze_trash_command (Saat ini masih mockup saja)
-**Fungsi:** Menerima gambar sampah dari device pengguna (Kamera/Galeri), memprosesnya melalui model AI (OpenAI Vision) untuk mendeteksi jenis material dan kelayakannya, mencocokkan harga dari database Supabase, dan mengembalikan hasil analisis lengkap ke layar UI.
-
-**Parameter:** 
-``` Typescript
-{
-  imageBase64: string // Teks Base64 murni TANPA prefix "data:image/jpeg;base64,"
-}
-```
-
-**Return:** ``Result<ScanResult, String>`` (Akan melempar error string jika gagal).
-
-**Response Model (``ScanResult``):**
-```Typescript
-interface ScanResult {
-  status: string;         // "success" | "failed" | "unrecognized"
-  trash_type: string;     // Nama display untuk UI (Contoh: "Botol Plastik PET")
-  label_id: string;       // ID untuk referensi DB (Contoh: "plastic_pet")
-  kelayakan: string;      // Kategori kelayakan (Contoh: "Layak Ditabung")
-  material_info: string;  // Penjelasan material (Contoh: "Plastik PET, ukuran standar.")
-  kondisi: string;        // Hasil visual AI (Contoh: "Utuh namun sudah diremas.")
-  kebersihan: string;     // Hasil visual AI (Contoh: "Sangat bersih.")
-  estimasi_harga: number; // Harga per satuan/kg dari DB Supabase (Contoh: 4000)
-}
-```
-
-**PENTING UNTUK FRONTEND!!!:** JANGAN PERNAH mengirimkan file gambar mentah (raw image) langsung dari kamera ke dalam command ini. Resolusi kamera HP modern bisa mencapai 10MB - 20MB. Jika file sebesar itu diubah menjadi Base64 dan dikirim ke Rust, memori HP akan penuh (Out of Memory/OOM) dan aplikasi akan Force Close (Crash).
-
-**Aturan Wajib Frontend:** 
-1. Tangkap gambar dari tag ``<video>`` atau input file galeri. 
-2. Gambar WAJIB di-resize/kompres menggunakan HTML5 ``<canvas>`` di sisi Vue.
-3. Batas maksimal ukuran dimensi: 800x800 pixels. (bisa didiskusikan untuk ukuran)
-4. Format kompresi: JPEG dengan Quality 70% (0.7). (akan didiskusikan)
-5. Buang awalan data:image/jpeg;base64, sebelum dikirim ke invoke.
-
-
-
-**Code Example (Vue.js Integration):**
-```typescript
 import { invoke } from '@tauri-apps/api/core';
 
-// 1. Fungsi Utama Pemanggilan AI
-async function scanSampah(fileGambarAsli: File) {
+async function tampilkanLog() {
   try {
-    console.log("Memulai kompresi gambar...");
+    const isiLog = await invoke<string>('read_local_log_command');
     
-    // Wajib panggil fungsi kompresi dulu!
-    const base64Aman = await compressImageForAI(fileGambarAsli);
-    
-    console.log("Gambar berhasil dikompres, mengirim ke Backend/AI...");
-    
-    // Panggil command Rust
-    const result = await invoke<ScanResult>('analyze_trash_command', { 
-      imageBase64: base64Aman 
-    });
+    if (!isiLog) {
+      console.log('File log masih kosong.');
+      return;
+    }
 
-    console.log("✅ Hasil Scan Sukses:", result);
-    // TODO: Tampilkan result.trash_type dan result.estimasi_harga ke UI Bottom Sheet
+    // Pisah per baris untuk ditampilkan di UI
+    const baris = isiLog.split('\n').filter(b => b.trim() !== '');
+    console.log(`Total ${baris.length} baris log.`);
+    console.log(baris);
     
   } catch (error) {
-    console.error("❌ Gagal melakukan scan:", error);
-    // TODO: Tampilkan Toast error ke user ("Gagal mengenali gambar, pastikan pencahayaan cukup")
+    console.error('Gagal membaca log lokal:', error);
   }
-}
-
-// 2. Fungsi Helper: Kompresi Gambar (Standard Krenova)
-function compressImageForAI(file: File): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.readAsDataURL(file);
-    reader.onload = (event) => {
-      const img = new Image();
-      img.src = event.target?.result as string;
-      img.onload = () => {
-        const canvas = document.createElement('canvas');
-        const MAX_WIDTH = 800; 
-        const MAX_HEIGHT = 800;
-        let width = img.width;
-        let height = img.height;
-
-        // Hitung rasio untuk mencegah gambar gepeng
-        if (width > height) {
-          if (width > MAX_WIDTH) {
-            height *= MAX_WIDTH / width;
-            width = MAX_WIDTH;
-          }
-        } else {
-          if (height > MAX_HEIGHT) {
-            width *= MAX_HEIGHT / height;
-            height = MAX_HEIGHT;
-          }
-        }
-
-        canvas.width = width;
-        canvas.height = height;
-        const ctx = canvas.getContext('2d');
-        ctx?.drawImage(img, 0, 0, width, height);
-
-        // Export ke JPEG 70%
-        const dataUrl = canvas.toDataURL('image/jpeg', 0.7);
-        // Hapus prefix agar Rust menerima murni teks Base64
-        const base64String = dataUrl.split(',')[1]; 
-        
-        resolve(base64String);
-      };
-      img.onerror = (error) => reject(error);
-    };
-    reader.onerror = (error) => reject(error);
-  });
 }
 ```
 
-**⏱️ Catatan Latensi & Alur Backend (Informasi Tambahan)**
-Tim Frontend perlu menambahkan Loading Spinner (seperti "Menganalisis Sampah...") karena command ini membutuhkan waktu pemrosesan sekitar 3 hingga 7 detik (tergantung koneksi internet).
+**Cara Akses Log dari Luar Aplikasi (via ADB):**
+```powershell
+# Baca langsung di terminal
+& "$env:LOCALAPPDATA\Android\Sdk\platform-tools\adb.exe" shell "run-as com.users.scantrash cat scantrash_local.log"
 
-Hal ini terjadi karena di belakang layar (Backend), command ini melakukan serangkaian tugas berat secara berurutan:
-1. Menerima gambar dan merakit Prompt untuk AI.
+# Download ke file .txt di komputer
+& "$env:LOCALAPPDATA\Android\Sdk\platform-tools\adb.exe" shell "run-as com.users.scantrash cat scantrash_local.log" > log_hp_saya.txt
+```
 
-2. Mengirim gambar ke API OpenAI (Menunggu respons AI).
+> [!IMPORTANT]
+> File log disimpan di direktori privat Android (`app_local_data_dir()`). File ini hanya dapat diakses oleh proses aplikasi itu sendiri. Di luar ADB (mode debug), file ini tidak dapat dibaca oleh aplikasi lain di HP.
 
-3. Mengecek harga ke Database Supabase (tabel pricelist) berdasarkan tebakan AI.
+### 8️⃣ `scan_trash`
+Command ini adalah jantung utama dari aplikasi ScanTrash. Fungsinya adalah menerima gambar dari kamera HP, mengirimkannya ke AI Hugging Face untuk dianalisis, menyimpan riwayatnya ke database Supabase, dan mengembalikan hasil perhitungannya ke layar HP.
 
-4. Mengunggah gambar tersebut ke Supabase Storage Bucket.
+> [!IMPORTANT]
+> **Perubahan Keamanan (Update Terbaru):** Pesan error yang dikembalikan ke frontend sekarang **bersifat generik** untuk melindungi infrastruktur server. Kamu tidak akan lagi melihat stack trace atau URL Supabase di pesan error. Detail error teknis hanya tersimpan di `scantrash_local.log` di HP.
 
-5. Menyimpan riwayat transaksi scan ke dalam Database.
+**Alur Kerja:**
+1. Vue (Frontend) mengambil foto berformat Base64 (JPEG/PNG/WEBP).
+2. Vue memanggil `invoke("scan_trash", { image: foto_base64 })`.
+3. Backend memvalidasi ukuran gambar (max ~5MB / 7.000.000 karakter). Jika terlalu besar, langsung return error.
+4. Backend memvalidasi format prefix Base64 (hanya `jpeg`, `png`, `webp` yang diizinkan).
+5. Rust (Backend) otomatis mengambil JWT Token user yang sedang login dari Brankas (AppState).
+6. Rust mengirimnya ke AI beserta instruksi harga dari Supabase.
+7. AI merespons, Rust memecah datanya menjadi Array (mendukung banyak objek sekaligus).
+8. Rust menembak data tersebut ke Supabase tabel scan (menyimpan ke database).
+9. Rust mengembalikan Array tersebut ke Vue untuk ditampilkan di UI.
 
-6. Mengembalikan ScanResult ke Frontend.
+**Struktur Datanya**
+```typescript
+// Apa yang akan kamu terima dari Rust
+export interface ScanResult {
+  trash_type: string;      // Contoh: "Kardus"
+  label_id: string;        // Contoh: "kardus" (lowercase_dengan_underscore)
+  material_info: string;   // Contoh: "Jumlah/Berat: 1"
+  kondisi: string;         // Contoh: "Kardus kotak lampu LED, kondisi utuh..."
+  kebersihan: string;      // Contoh: "Sesuai deteksi visual"
+  estimasi_harga: number;  // Contoh: 175 (Angka bulat, bukan teks Rp)
+}
+```
 
-Atau bisa langsung lihat implementasinya di src/views/ScanView.vue
+**Cara menggunakannya:**
+```typescript
+import { invoke } from "@tauri-apps/api/core";
+
+// 1. Siapkan variabel gambar (JPEG/PNG/WEBP Base64)
+const imageBase64 = "data:image/jpeg;base64,/9j/4AAQSkZJRgABAQ...";
+
+// 2. Tembak ke Rust
+try {
+  const hasilScan = await invoke<ScanResult[]>("scan_trash", { 
+    image: imageBase64 
+  });
+  
+  // 3. Sukses! hasilScan adalah Array.
+  console.log(`Ada ${hasilScan.length} sampah yang terdeteksi!`);
+  console.log("Total Harga Objek Pertama:", hasilScan[0].estimasi_harga);
+
+} catch (error) {
+  // 4. Gagal! Pesan error yang diterima bersifat generik (tidak ada URL/stack trace)
+  // Contoh pesan error yang mungkin muncul:
+  // "Payload gambar terlalu besar. Maksimal ~5MB."
+  // "Format gambar tidak diizinkan. Gunakan JPG, PNG, atau WEBP."
+  // "Koneksi gagal. Pastikan internet Anda aktif."
+  // "Gagal menyimpan data scan ke sistem."
+  // "Sesi habis atau user belum login!"
+  console.error("Gagal Scan:", error);
+  showErrorToast(String(error));
+}
+```
+
+**Error yang Mungkin Dikembalikan ke Frontend:**
+| Pesan Error | Penyebab |
+|---|---|
+| `"Payload gambar terlalu besar. Maksimal ~5MB."` | Gambar base64 >7juta karakter |
+| `"Format gambar tidak diizinkan. Gunakan JPG, PNG, atau WEBP."` | Format gambar bukan jpeg/png/webp |
+| `"Koneksi gagal. Pastikan internet Anda aktif."` | Gagal ambil rules/pricelist dari Supabase |
+| `"Gagal terhubung ke layanan AI."` | Koneksi ke Hugging Face gagal/timeout |
+| `"Layanan AI sedang mengalami gangguan."` | HF API error (4xx/5xx) |
+| `"Gagal menyimpan data scan ke sistem."` | Insert ke DB Supabase gagal |
+| `"Sesi habis atau user belum login!"` | Token tidak ada di AppState |
+| `"Data kosong, AI gagal membaca sampah."` | AI tidak mengenali objek sama sekali |
 
 ---
 
+### 9️⃣ `get_balance_command`
+**Fungsi:** Mengambil saldo terkini. 
+- Jika User yang memanggil: akan selalu mengambil saldonya sendiri.
+- Jika Admin yang memanggil: bisa mengambil saldo miliknya sendiri, atau saldo nasabah tertentu dengan mengirimkan `targetUserId`.
+
+**Parameter:**
+```typescript
+{
+  targetUserId?: string | null // Opsional. Kosongkan (null) untuk user biasa. Isi dengan UUID untuk Admin melihat saldo nasabah.
+}
+```
+
+**Return Type:** `i64` (number)
+
+**Code Example:**
+```typescript
+import { invoke } from "@tauri-apps/api/core";
+
+// 1. Contoh Nasabah Biasa
+async function cekSaldoSendiri() {
+  try {
+    const saldo = await invoke<number>("get_balance_command", { targetUserId: null });
+    console.log("Saldo Terkini:", saldo);
+  } catch (error) {
+    console.error("Gagal ambil saldo:", error);
+  }
+}
+
+// 2. Contoh Admin Melihat Saldo Nasabah
+async function cekSaldoNasabah(uid: string) {
+  try {
+    const saldo = await invoke<number>("get_balance_command", { targetUserId: uid });
+    console.log("Saldo Nasabah:", saldo);
+  } catch (error) {
+    console.error("Gagal ambil saldo nasabah:", error);
+  }
+}
+```
+
+---
+
+### 🔟 `get_savings_history_command`
+**Fungsi:** Mengambil 50 riwayat transaksi terbaru dari tabel `savings`. Mendukung penggunaan oleh User (melihat riwayatnya sendiri) maupun Admin (melihat riwayat nasabah tertentu).
+
+**Parameter:**
+```typescript
+{
+  targetUserId?: string | null // Opsional. Kosongkan (null) untuk user biasa. Isi UUID untuk Admin.
+}
+```
+
+**Return Type:** `Vec<SavingsRecord>` (Array)
+
+**Response Type:**
+```typescript
+interface SavingsRecord {
+  id?: string;
+  user_id?: string;
+  amount_before?: number; // Saldo sebelum transaksi
+  amount?: number;        // Saldo setelah transaksi (naik/turun)
+  keterangan?: string;    // Catatan (opsional)
+  created_at?: string;    // Waktu transaksi
+}
+```
+*💡 Hint untuk UI:* Jika `amount >= amount_before`, berarti tipe transaksinya adalah "Setoran" (Income). Jika sebaliknya, berarti "Penarikan" (Expense).
+
+**Code Example:**
+```typescript
+import { invoke } from "@tauri-apps/api/core";
+
+// 1. User melihat riwayatnya sendiri
+const riwayatku = await invoke<SavingsRecord[]>("get_savings_history_command", { targetUserId: null });
+
+// 2. Admin melihat riwayat nasabah spesifik
+const riwayatNasabah = await invoke<SavingsRecord[]>("get_savings_history_command", { targetUserId: "uuid-nasabah-tersebut" });
+```
+
+---
+
+### 1️⃣1️⃣ `get_schedules_command`
+**Fungsi:** Mengambil daftar jadwal buka/tutup lapak (tabel `tanggal`).
+
+**Parameter:** Tidak ada
+
+**Return Type:** `Vec<Schedule>` (Array)
+
+**Response Type:**
+```typescript
+interface ScheduleItem {
+  id_tanggal?: string;
+  waktu_buka: string;     // Contoh: "09:00:00+00"
+  lokasi: string;         // Lokasi lapak
+  waktu_tutup: string;    // Contoh: "16:00:00+00"
+  tanggal: string;        // Contoh: "2026-05-10"
+}
+```
+
+**Code Example:**
+```typescript
+import { invoke } from "@tauri-apps/api/core";
+
+async function ambilJadwal() {
+  try {
+    const jadwal = await invoke<ScheduleItem[]>("get_schedules_command");
+    if (jadwal.length > 0) {
+      console.log("Jadwal Terdekat:", jadwal[0].tanggal);
+    }
+  } catch (error) {
+    console.error("Gagal memuat jadwal:", error);
+  }
+}
+```
+
+---
 
 ## 📊 Complete Data Models
 
@@ -927,5 +1022,18 @@ Jika ada issue atau pertanyaan:
 
 ---
 
-**Last Updated:** Latest - Sesuai dengan kode backend saat ini
+**Last Updated:** 2026-05-09 — User Feature Completion (Wallet & Schedules)
 **Status:** Ready for Frontend Integration ✅
+
+### Changelog
+- **2026-05-09:** 
+  - **NEW API:** `get_balance_command` ditambahkan untuk mengambil saldo realtime dari Supabase.
+  - **NEW API:** `get_savings_history_command` ditambahkan untuk mengambil 50 riwayat transaksi (`savings`) terbaru.
+  - **NEW API:** `get_schedules_command` ditambahkan untuk membaca jadwal setor dari tabel `tanggal`.
+  - **BUG FIX:** Memperbaiki bug pada layanan AI di mana JWT yang expired diabaikan dan membuat scan bingung tanpa sistem rules.
+  - **BUG FIX:** Memperbaiki `get_pricelist_command` yang salah menggunakan anon_key untuk autentikasi dan memperbaiki hilangnya kolom `img_url`.
+- **2026-04-28:** 
+  - Ditambahkan `read_local_log_command` (baca log dari HP)
+  - `write_local_log_command`: Timestamp `[YYYY-MM-DD HH:MM:SS]` sekarang otomatis ditambahkan oleh backend, frontend tidak perlu mengirim waktu.
+  - `scan_trash`: Pesan error ke frontend sekarang bersifat generik (tidak bocorkan URL/stack trace). Ditambahkan validasi ukuran gambar (max ~5MB) dan validasi format (hanya jpeg/png/webp). Ditambahkan tabel Error Reference.
+  - Internal logic `scan_trash` dipindah ke `scan_service.rs` (tidak berdampak pada cara penggunaan dari Vue).

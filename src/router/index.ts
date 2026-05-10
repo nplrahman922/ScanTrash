@@ -2,12 +2,12 @@ import { createRouter, createWebHistory, RouteRecordRaw } from 'vue-router'
 import { useAuthStore } from '../stores/authStore'
 import MainLayout from '../layout/MainLayout.vue'
 import LoginView from '../views/LoginView.vue'
-import UserDashboard from '../views/UserDashboard.vue'
-import WalletView from '../views/WalletView.vue'
-import TrashTypeView from '../views/TrashTypeView.vue'
-import TipsView from '../views/TipsView.vue'
-import AdminDashboard from '../views/AdminDashboard.vue'
-import ScanView from '../views/ScanView.vue'
+import UserDashboard from '../views/userView/UserDashboard.vue'
+import WalletView from '../views/userView/WalletView.vue'
+import TrashTypeView from '../views/userView/TrashTypeView.vue'
+import TipsView from '../views/userView/TipsView.vue'
+import AdminDashboard from '../views/adminView/AdminDashboard.vue'
+import ScanView from '../views/userView/ScanView.vue'
 
 const routes: Array<RouteRecordRaw> = [
   {

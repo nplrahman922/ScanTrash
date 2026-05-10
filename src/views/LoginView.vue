@@ -19,12 +19,12 @@ const handleLogin = async () => {
 </script>
 
 <template>
-  <div class="min-h-screen flex flex-col items-center justify-center bg-gray-100">
+  <div class="min-h-screen flex flex-col items-center justify-center" style="background-color: var(--color-tertiary);">
     <!-- logo di atas card -->
     <img :src="logo" alt="ScanTrash logo" class="w-32 h-32 mb-8" />
 
     <!-- card hijau -->
-    <div class="bg-green-500 rounded-xl p-8 w-full max-w-sm text-center shadow-lg">
+    <div class="rounded-xl p-8 w-full max-w-sm text-center shadow-lg" style="background-color: var(--color-primary);">
       <h1 class="text-white text-2xl font-semibold mb-6">
         Welcome to ScanTrash
       </h1>
@@ -33,10 +33,10 @@ const handleLogin = async () => {
       <button
         @click="handleLogin"
         :disabled="authStore.loading"
-        class="flex items-center justify-center bg-white rounded-full px-4 py-2 w-full hover:bg-gray-100 transition-colors"
+        class="google-btn flex items-center justify-center rounded-full px-4 py-2 w-full transition-colors"
       >
         <img :src="googleIcon" alt="Google" class="w-6 h-6 mr-2" />
-        <span class="text-gray-800 font-medium">
+        <span class="font-medium">
           {{ authStore.loading ? 'Loading…' : 'Sign in with Google' }}
         </span>
       </button>
@@ -45,7 +45,7 @@ const handleLogin = async () => {
         Mari kita mulai untuk menjaga kebersihan bersama!
       </p>
 
-      <p v-if="authStore.error" class="text-red-200 text-sm mt-2">
+      <p v-if="authStore.error" class="text-sm mt-2" style="color: var(--color-secondary);">
         {{ authStore.error }}
       </p>
     </div>
@@ -53,5 +53,17 @@ const handleLogin = async () => {
 </template>
 
 <style scoped>
-/* style minimal; mayoritas dikerjakan oleh Tailwind */
+.google-btn {
+  background-color: white;
+  color: #333;
+}
+
+.google-btn:hover {
+  background-color: #f0f0f0;
+}
+
+.google-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
 </style>

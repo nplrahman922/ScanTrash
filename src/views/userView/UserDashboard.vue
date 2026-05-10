@@ -1,13 +1,10 @@
 <template>
-  <div class="p-4 space-y-5 bg-gray-100 min-h-screen">
+  <div class="p-4 space-y-5 min-h-screen">
 
     <!-- 🟢 BALANCE -->
     <BalanceCard
       :balance="userStore.balance"
-      :icon="walletIcon"
-      :scanIcon="scanIcon"
-      :historyIcon="historyIcon"
-      bgColor="bg-green-500"
+      :bgImage="balanceBg"
       @scan="goToScan"
       @history="goToWallet"
     />
@@ -15,37 +12,36 @@
     <!-- 🟡 INFO -->
     <div class="grid grid-cols-2 gap-4">
       <InfoCard
-        :icon="trashIcon"
         title="Sampah Terkumpul"
         :value="userStore.totalTrash + ' Item'"
-        bgColor="bg-blue-100"
+        :bgImage="trashBg"
       />
 
       <InfoCard
-        :icon="calendarIcon"
         title="Jadwal Setor"
         :value="userStore.schedule"
-        bgColor="bg-yellow-100"
+        :bgImage="scheduleBg"
       />
     </div>
 
     <!-- 🔵 TRANSAKSI -->
     <div>
       <div class="flex justify-between mb-3">
-        <h2 class="font-semibold">Transaksi Terakhir</h2>
+        <h2 class="font-semibold text-gray-900">Transaksi Terakhir</h2>
         <button 
           @click="goToWallet"
-          class="text-green-500 text-sm">Lihat Semua</button>
+          class="text-[var(--color-primary)] text-sm font-medium">Lihat Semua</button>
       </div>
 
       <div class="space-y-3">
         <TransactionCard
-          v-for="trx in userStore.transactions"
+          v-for="(trx, index) in userStore.transactions"
           :key="trx.id"
           :name="trx.name"
           :date="trx.date"
           :amount="trx.amount"
           :type="trx.type"
+          :bgImage="index === 0 ? transaction1Bg : index === 1 ? transaction2Bg : ''"
         />
       </div>
     </div>
@@ -54,19 +50,18 @@
 </template>
 
 <script setup lang="ts">
-import { useUserStore } from "../stores/userStore"
+import { useUserStore } from "../../stores/userStore"
 import { useRouter } from "vue-router"
 
 import BalanceCard from "../components/BalanceCard.vue"
 import InfoCard from "../components/InfoCard.vue"
 import TransactionCard from "../components/TransactionCard.vue"
 
-// icon
-import walletIcon from "../assets/user/Dompet1.svg"
-import scanIcon from "../assets/user/Scan1.svg"
-import historyIcon from "../assets/Riwayat.svg"
-import trashIcon from "../assets/user/Jumlah Item.svg"
-import calendarIcon from "../assets/user/Jadwal.svg"
+import balanceBg from "../../assets/userAset/userCard/saldo.webp"
+import trashBg from "../../assets/userAset/userCard/sampah terkumpul.webp"
+import scheduleBg from "../../assets/userAset/userCard/jadwal setor.webp"
+import transaction1Bg from "../../assets/userAset/userCard/transaksi terakhir 1.webp"
+import transaction2Bg from "../../assets/userAset/userCard/transaksi terakhir 2.webp"
 
 const userStore = useUserStore()
 const router = useRouter()

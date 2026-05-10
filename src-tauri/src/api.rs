@@ -1,14 +1,12 @@
 use reqwest::Client;
 use serde_json::json;
+use tauri::AppHandle;
+use crate::services::local_log_service::write_local_log;
 
 pub fn get_hf_token() -> String {
-    // Membaca dari environment variables jika tersedia
     if let Ok(token) = std::env::var("HF_Token") {
         return token;
     }
-
-    // Fallback: Untuk Android/build, kita embed isi .env saat compile time
-    // Ini memastikan nilai HF_Token tetap terbaca di Android tanpa perlu akses filesystem runtime
     let env_content = include_str!("../../.env");
     for line in env_content.lines() {
         if let Some((k, v)) = line.split_once('=') {
@@ -21,35 +19,66 @@ pub fn get_hf_token() -> String {
 }
 
 pub async fn analyze_image_with_hf(
+    app_handle: &AppHandle,
     image_base64: &str,
     system_prompt: &str,
     user_prompt: &str,
 ) -> Result<String, String> {
     let token = get_hf_token();
     if token.is_empty() {
-        return Err("HF_Token tidak ditemukan di .env atau environment".to_string());
+        write_local_log(app_handle, "ERROR", "HF_Token tidak ditemukan di .env atau environment");
+        return Err("Terjadi kesalahan konfigurasi layanan AI.".to_string());
     }
 
-    let client = Client::new();
+    // 1. Sanitasi Text Prompt (Mencegah Prompt Injection dari control characters)
+    let safe_system_prompt: String = system_prompt.chars().filter(|c| !c.is_control() || *c == '\n' || *c == '\t').collect();
+    let safe_user_prompt: String = user_prompt.chars().filter(|c| !c.is_control() || *c == '\n' || *c == '\t').collect();
 
-    // Menggunakan Endpoint Hugging Face Router API dengan model Qwen
-    let model_url = "https://router.huggingface.co/v1/chat/completions";
+    // 2. Validasi Ukuran & Sanitasi Image Base64 (Mencegah DoS & Payload berbahanya)
+    if image_base64.len() > 7_000_000 {
+        write_local_log(app_handle, "WARNING", "Request ditolak: Ukuran gambar base64 terlalu besar (DoS prevention)");
+        return Err("Ukuran gambar terlalu besar.".to_string());
+    }
+    
+    // Pastikan base64 hanya berisi karakter valid ASCII untuk base64 / data URI
+    if !image_base64.is_ascii() {
+        write_local_log(app_handle, "WARNING", "Request ditolak: Base64 mengandung karakter non-ASCII (Potensi Payload Injection)");
+        return Err("Format gambar tidak valid.".to_string());
+    }
 
-    // Pastikan base64 memiliki prefiks data URI yang valid
-    let image_data = if image_base64.starts_with("data:image") {
+    // 3. Validasi Format Prefix
+    let allowed_prefixes = [
+        "data:image/jpeg;base64,",
+        "data:image/png;base64,",
+        "data:image/webp;base64,"
+    ];
+
+    let has_valid_prefix = allowed_prefixes.iter().any(|&prefix| image_base64.starts_with(prefix));
+    
+    let image_data = if has_valid_prefix {
         image_base64.to_string()
     } else {
+        if image_base64.starts_with("data:image/") {
+            write_local_log(app_handle, "WARNING", "Request ditolak: Format gambar tidak diizinkan");
+            return Err("Format gambar tidak diizinkan. Gunakan JPG, PNG, atau WEBP.".to_string());
+        }
         format!("data:image/jpeg;base64,{}", image_base64)
     };
 
-    // 🔥 TRIK HACKATHON: Gabungkan system dan user prompt agar AI tidak nge-blank
-    let combined_prompt = format!("{}\n\n{}", system_prompt, user_prompt);
+    // 3. Timeout 60 detik
+    let client = Client::builder()
+        .timeout(std::time::Duration::from_secs(60))
+        .build()
+        .unwrap_or_else(|_| Client::new());
+
+    let model_url = "https://router.huggingface.co/v1/chat/completions";
+    let combined_prompt = format!("{}\n\n{}", safe_system_prompt, safe_user_prompt);
 
     let payload = json!({
         "model": "Qwen/Qwen3-VL-235B-A22B-Instruct",
         "messages": [
             {
-                "role": "user", // 👈 Semua instruksi dan daftar harga masuk ke sini
+                "role": "user",
                 "content": [
                     {"type": "text", "text": combined_prompt},
                     {"type": "image_url", "image_url": {"url": image_data}}
@@ -57,7 +86,7 @@ pub async fn analyze_image_with_hf(
             }
         ],
         "max_tokens": 1024,
-        "temperature": 0.3 // 👈 Tambahkan ini agar hitungan matematika AI lebih konsisten
+        "temperature": 0.3
     });
 
     let resp = client
@@ -67,19 +96,25 @@ pub async fn analyze_image_with_hf(
         .json(&payload)
         .send()
         .await
-        .map_err(|e| format!("Gagal memanggil API: {}", e))?;
+        .map_err(|_e| {
+            write_local_log(app_handle, "ERROR", "Gagal mengirim request ke API HF.");
+            "Gagal terhubung ke layanan AI.".to_string()
+        })?;
 
     if resp.status().is_client_error() || resp.status().is_server_error() {
         let err_text = resp.text().await.unwrap_or_default();
-        return Err(format!("HF API Error: {}", err_text));
+        write_local_log(app_handle, "ERROR", &format!("HF API Error: {}", err_text));
+        return Err("Layanan AI sedang mengalami gangguan.".to_string());
     }
 
     let result_json: serde_json::Value = resp
         .json()
         .await
-        .map_err(|e| format!("Gagal parsing JSON: {}", e))?;
+        .map_err(|_e| {
+            write_local_log(app_handle, "ERROR", "Gagal parsing JSON dari respons API HF.");
+            "Terjadi kesalahan saat membaca respons AI.".to_string()
+        })?;
 
-    // Parsing response format Chat Completion
     if let Some(content) = result_json
         .get("choices")
         .and_then(|c| c.get(0))
@@ -89,7 +124,6 @@ pub async fn analyze_image_with_hf(
     {
         Ok(content.to_string())
     } else {
-        // Fallback jika HF mengembalikan format generated_text / array
         if let Some(arr) = result_json.as_array() {
             if let Some(obj) = arr.get(0) {
                 if let Some(text) = obj.get("generated_text").and_then(|t| t.as_str()) {
@@ -97,6 +131,7 @@ pub async fn analyze_image_with_hf(
                 }
             }
         }
-        Ok(result_json.to_string())
+        write_local_log(app_handle, "ERROR", "Format respons HF tidak dikenali (struktur JSON tidak sesuai).");
+        Err("Format respons AI tidak valid atau tidak dikenali.".to_string())
     }
 }

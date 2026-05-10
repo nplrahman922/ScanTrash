@@ -2,8 +2,8 @@
 import { useRouter } from "vue-router"
 
 import IconHome from "../assets/Beranda.svg"
-import IconWallet from "../assets/user/Dompet2.svg"
-import IconScan from "../assets/user/Scan2.svg"
+import IconWallet from "../assets/userAset/Dompet2.svg"
+import IconScan from "../assets/userAset/Scan2.svg"
 
 const router = useRouter()
 

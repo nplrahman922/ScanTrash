@@ -40,8 +40,8 @@ pub async fn check_auth_status_command(app_handle: tauri::AppHandle) -> Result<b
 
             Ok(true) 
         }
-        Err(err) => {
-            println!("❌ [RUST] Auto-Refresh Gagal: {}. Menghapus data...", err);
+        Err(_err) => {
+            println!("❌ [RUST] Auto-Refresh Gagal. Menghapus data...");
             crate::services::local_log_service::write_local_log(&app_handle, "WARNING", "System gagal melakukan auto-refresh token.");
             session_service::clear_session(&app_handle); // Bersihkan Gudang
             Ok(false) 
@@ -70,8 +70,8 @@ pub fn init_deep_link_listener(app_handle: tauri::AppHandle) {
                     crate::services::local_log_service::write_local_log(&bg_handle, "INFO", "User berhasil login ke aplikasi melalui Google OAuth.");
 
                     // Kirim sinyal ke Vue
-                    if let Err(e) = bg_handle.emit("login-success", "Login tervalidasi di backend!") {
-                        println!("⚠️ [RUST] UI belum siap menerima sinyal... Error: {}", e);
+                    if let Err(_e) = bg_handle.emit("login-success", "Login tervalidasi di backend!") {
+                        println!("⚠️ [RUST] UI belum siap menerima sinyal.");
                         crate::services::local_log_service::write_local_log(&bg_handle, "WARNING", "UI belum siap menerima sinyal.");
                     }
                 });

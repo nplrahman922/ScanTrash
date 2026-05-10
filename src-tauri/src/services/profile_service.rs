@@ -8,7 +8,10 @@ pub async fn get_user_profile(access_token: &str) -> Result<Profile, String> {
     let user_id = auth_service::get_user_id(access_token).await?;
 
     let config = AppConfig::init();
-    let client = Client::new();
+    let client = Client::builder()
+        .timeout(std::time::Duration::from_secs(15))
+        .build()
+        .unwrap_or_else(|_| Client::new());
     
     // 2. Tambahkan filter ?user_id=eq.{user_id} ke URL (MIMIC: .eq('user_id', user.id))
     // Kolom ini merujuk pada tabel profiles yang memiliki kolom user_id uuid [cite: 16]
@@ -24,13 +27,12 @@ pub async fn get_user_profile(access_token: &str) -> Result<Profile, String> {
         .header("Accept", "application/vnd.pgrst.object+json") 
         .send()
         .await
-        .map_err(|e| format!("Gagal menghubungi Supabase: {}", e))?;
+        .map_err(|_e| "Koneksi ke server gagal saat mengambil profil.".to_string())?;
 
     if res.status().is_success() {
-        let profile: Profile = res.json().await.map_err(|e| format!("Format JSON tidak sesuai: {}", e))?;
+        let profile: Profile = res.json().await.map_err(|_e| "Format profil dari server tidak sesuai.".to_string())?;
         Ok(profile)
     } else {
-        let err_text = res.text().await.unwrap_or_default();
-        Err(format!("Profil gagal ditarik: {}", err_text))
+        Err("Gagal mengambil profil. Sesi mungkin tidak valid.".to_string())
     }
 }
