@@ -1,14 +1,14 @@
 import { defineStore } from "pinia"
 import { invoke } from "@tauri-apps/api/core"
+import { useAuthStore } from "./authStore"
 
-// Tipe data satu baris dari tabel savings (sesuai SavingsRecord di Rust)
-interface SavingsRecord {
-  id?: string
-  user_id?: string
-  amount_before?: number  // saldo SEBELUM transaksi
-  amount?: number         // saldo SETELAH transaksi
-  keterangan?: string     // catatan transaksi
-  created_at?: string
+// Tipe data TransactionItem yang dikirim backend (kalkulasi sudah dilakukan di Rust)
+interface TransactionItem {
+  id: string
+  name: string          // keterangan atau default "Setoran"/"Penarikan"
+  date: string          // ISO timestamptz dari created_at
+  nominal: number       // selisih absolut amount - amount_before (dihitung backend)
+  transaction_type: "income" | "expense"  // ditentukan backend
 }
 
 // Tipe data dari tabel tanggal
@@ -44,12 +44,18 @@ export const useUserStore = defineStore("user", {
   }),
 
   actions: {
-    // Ambil saldo terkini dari backend Rust
+    // Ambil saldo terkini dari backend Rust.
+    // Wajib menyertakan user_id dari profil yang sedang login.
     async fetchBalance() {
       this.loadingBalance = true
       this.errorBalance = ""
       try {
-        const saldo = await invoke<number>("get_balance_command", { targetUserId: null })
+        const authStore = useAuthStore()
+        const userId = authStore.profile?.user_id
+        if (!userId) {
+          throw new Error("Tidak dapat memuat saldo: profil pengguna belum tersedia.")
+        }
+        const saldo = await invoke<number>("get_balance_command", { targetUserId: userId })
         this.balance = saldo
       } catch (err: any) {
         this.errorBalance = err as string
@@ -59,36 +65,33 @@ export const useUserStore = defineStore("user", {
       }
     },
 
-    // Ambil riwayat transaksi dari backend Rust
+    // Ambil riwayat transaksi dari backend Rust.
+    // Wajib menyertakan user_id dari profil yang sedang login.
+    // Kalkulasi (nominal, income/expense) sudah dilakukan di backend.
     async fetchHistory() {
       this.loadingHistory = true
       this.errorHistory = ""
       try {
-        const records = await invoke<SavingsRecord[]>("get_savings_history_command", { targetUserId: null })
+        const authStore = useAuthStore()
+        const userId = authStore.profile?.user_id
+        if (!userId) {
+          throw new Error("Tidak dapat memuat riwayat: profil pengguna belum tersedia.")
+        }
+        const items = await invoke<TransactionItem[]>("get_savings_history_command", { targetUserId: userId })
 
-        // Map SavingsRecord ke format yang dipahami TransactionCard
-        this.transactions = records.map((rec) => {
-          const before = rec.amount_before ?? 0
-          const after  = rec.amount ?? 0
-          // Jika saldo naik → income, turun → expense
-          const isIncome = after >= before
-
-          // Format tanggal dari ISO timestamptz → "D/M/YYYY"
-          let dateStr = "-"
-          if (rec.created_at) {
-            const d = new Date(rec.created_at)
+        // Hanya format tanggal untuk presentasi (logika bisnis sudah di backend)
+        this.transactions = items.map((item) => {
+          let dateStr = item.date
+          if (dateStr) {
+            const d = new Date(dateStr)
             dateStr = `${d.getDate()}/${d.getMonth() + 1}/${d.getFullYear()}`
           }
-
-          // Nominal = selisih absolut antara saldo sebelum dan sesudah
-          const nominal = Math.abs(after - before)
-
           return {
-            id: rec.id ?? Math.random().toString(),
-            name: rec.keterangan || (isIncome ? "Setoran" : "Penarikan"),
-            date: dateStr,
-            amount: nominal,
-            type: isIncome ? "income" : "expense",
+            id: item.id,
+            name: item.name,
+            date: dateStr || "-",
+            amount: item.nominal,
+            type: item.transaction_type,
           }
         })
       } catch (err: any) {

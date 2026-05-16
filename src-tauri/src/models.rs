@@ -87,7 +87,23 @@ pub struct SavingsRecord {
     pub created_at: Option<String>,
 }
 
-// 7. Tabel tanggal (Jadwal Setor Nasabah)
+// 7. TransactionItem — respons riwayat transaksi yang sudah dikalkulasi di backend
+/// Struct ini BUKAN representasi langsung tabel DB.
+/// Dikirim ke frontend setelah backend menghitung nominal dan menentukan tipe transaksi.
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct TransactionItem {
+    pub id: String,
+    /// Label transaksi: isi kolom keterangan, atau "Setoran"/"Penarikan" sebagai fallback
+    pub name: String,
+    /// Timestamp ISO dari created_at (format presentasi dilakukan di frontend)
+    pub date: String,
+    /// Selisih absolut antara amount dan amount_before
+    pub nominal: i64,
+    /// "income" jika saldo naik, "expense" jika saldo turun
+    pub transaction_type: String,
+}
+
+// 8. Tabel tanggal (Jadwal Setor Nasabah)
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Schedule {
     #[serde(skip_serializing_if = "Option::is_none")]

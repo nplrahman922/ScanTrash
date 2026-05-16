@@ -579,13 +579,14 @@ try {
 
 ### 9️⃣ `get_balance_command`
 **Fungsi:** Mengambil saldo terkini. 
-- Jika User yang memanggil: akan selalu mengambil saldonya sendiri.
-- Jika Admin yang memanggil: bisa mengambil saldo miliknya sendiri, atau saldo nasabah tertentu dengan mengirimkan `targetUserId`.
+- Karena fitur keamanan baru (RLS Fallback), parameter ini **wajib diisi** dengan ID user.
+- User biasa wajib mengirimkan `user_id` miliknya sendiri (didapat dari `profile`). Backend akan memvalidasi apakah ID yang diminta sesuai dengan sesi.
+- Admin bisa mengirimkan `targetUserId` milik nasabah mana pun untuk melihat saldonya.
 
 **Parameter:**
 ```typescript
 {
-  targetUserId?: string | null // Opsional. Kosongkan (null) untuk user biasa. Isi dengan UUID untuk Admin melihat saldo nasabah.
+  targetUserId: string // WAJIB. Isi dengan user_id dari profil (user biasa), atau UUID spesifik (untuk Admin melihat nasabah).
 }
 ```
 
@@ -594,11 +595,16 @@ try {
 **Code Example:**
 ```typescript
 import { invoke } from "@tauri-apps/api/core";
+import { useAuthStore } from "@/stores/authStore";
 
 // 1. Contoh Nasabah Biasa
 async function cekSaldoSendiri() {
   try {
-    const saldo = await invoke<number>("get_balance_command", { targetUserId: null });
+    const authStore = useAuthStore();
+    const myId = authStore.profile?.user_id;
+    if (!myId) throw new Error("Profil belum dimuat!");
+
+    const saldo = await invoke<number>("get_balance_command", { targetUserId: myId });
     console.log("Saldo Terkini:", saldo);
   } catch (error) {
     console.error("Gagal ambil saldo:", error);
@@ -619,39 +625,41 @@ async function cekSaldoNasabah(uid: string) {
 ---
 
 ### 🔟 `get_savings_history_command`
-**Fungsi:** Mengambil 50 riwayat transaksi terbaru dari tabel `savings`. Mendukung penggunaan oleh User (melihat riwayatnya sendiri) maupun Admin (melihat riwayat nasabah tertentu).
+**Fungsi:** Mengambil 50 riwayat transaksi terbaru dari tabel `savings`. Mendukung penggunaan oleh User (melihat riwayatnya sendiri) maupun Admin (melihat riwayat nasabah tertentu). Parameter `targetUserId` **wajib** diisi.
+Kalkulasi (menentukan income/expense dan menghitung nominal) sudah **dilakukan oleh backend Rust** sehingga frontend bisa langsung memakainya.
 
 **Parameter:**
 ```typescript
 {
-  targetUserId?: string | null // Opsional. Kosongkan (null) untuk user biasa. Isi UUID untuk Admin.
+  targetUserId: string // WAJIB. Isi dengan user_id dari profil, atau UUID spesifik (untuk Admin).
 }
 ```
 
-**Return Type:** `Vec<SavingsRecord>` (Array)
+**Return Type:** `Vec<TransactionItem>` (Array)
 
 **Response Type:**
 ```typescript
-interface SavingsRecord {
-  id?: string;
-  user_id?: string;
-  amount_before?: number; // Saldo sebelum transaksi
-  amount?: number;        // Saldo setelah transaksi (naik/turun)
-  keterangan?: string;    // Catatan (opsional)
-  created_at?: string;    // Waktu transaksi
+interface TransactionItem {
+  id: string;
+  name: string;          // Keterangan atau label default ("Setoran" / "Penarikan")
+  date: string;          // Waktu transaksi (ISO format, frontend cukup ubah ke string format)
+  nominal: number;       // Selisih absolut (sudah dihitung backend)
+  transaction_type: "income" | "expense"; // Tipe transaksi (ditentukan backend)
 }
 ```
-*💡 Hint untuk UI:* Jika `amount >= amount_before`, berarti tipe transaksinya adalah "Setoran" (Income). Jika sebaliknya, berarti "Penarikan" (Expense).
 
 **Code Example:**
 ```typescript
 import { invoke } from "@tauri-apps/api/core";
+import { useAuthStore } from "@/stores/authStore";
 
 // 1. User melihat riwayatnya sendiri
-const riwayatku = await invoke<SavingsRecord[]>("get_savings_history_command", { targetUserId: null });
+const authStore = useAuthStore();
+const myId = authStore.profile?.user_id;
+const riwayatku = await invoke<TransactionItem[]>("get_savings_history_command", { targetUserId: myId });
 
 // 2. Admin melihat riwayat nasabah spesifik
-const riwayatNasabah = await invoke<SavingsRecord[]>("get_savings_history_command", { targetUserId: "uuid-nasabah-tersebut" });
+const riwayatNasabah = await invoke<TransactionItem[]>("get_savings_history_command", { targetUserId: "uuid-nasabah-tersebut" });
 ```
 
 ---

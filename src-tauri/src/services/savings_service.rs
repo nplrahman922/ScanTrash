@@ -1,6 +1,6 @@
 use reqwest::Client;
 use crate::config::AppConfig;
-use crate::models::SavingsRecord;
+use crate::models::{SavingsRecord, TransactionItem};
 use crate::services::local_log_service::write_local_log;
 
 /// Mengambil saldo terkini nasabah dari tabel savings.
@@ -12,7 +12,7 @@ use crate::services::local_log_service::write_local_log;
 pub async fn get_current_balance(
     app_handle: &tauri::AppHandle,
     access_token: &str,
-    target_user_id: Option<&str>,
+    target_user_id: &str,
 ) -> Result<i64, String> {
     let config = AppConfig::init();
     let client = Client::builder()
@@ -21,15 +21,10 @@ pub async fn get_current_balance(
         .unwrap_or_else(|_| Client::new());
 
     // Ambil 1 baris terbaru, cukup kolom amount saja
-    let mut url = format!(
-        "{}/rest/v1/savings?select=amount&order=created_at.desc&limit=1",
-        config.supabase_url
+    let url = format!(
+        "{}/rest/v1/savings?select=amount&order=created_at.desc&limit=1&user_id=eq.{}",
+        config.supabase_url, target_user_id
     );
-
-    // Jika Admin mengirimkan ID spesifik, filter berdasarkan user_id tersebut
-    if let Some(uid) = target_user_id {
-        url = format!("{}&user_id=eq.{}", url, uid);
-    }
 
     let resp = client
         .get(&url)
@@ -60,34 +55,30 @@ pub async fn get_current_balance(
         .and_then(|v| v.as_i64())
         .unwrap_or(0);
 
-    write_local_log(app_handle, "INFO", &format!("Saldo terkini berhasil diambil: Rp {}", saldo));
+    write_local_log(app_handle, "INFO", "Berhasil mengambil saldo terkini.");
     Ok(saldo)
 }
 
-/// Mengambil riwayat transaksi nasabah dari tabel savings.
+/// Mengambil riwayat transaksi nasabah dari tabel savings,
+/// lalu menghitung nominal dan tipe transaksi di sisi backend.
 ///
-/// Mengembalikan maksimal 50 transaksi terbaru, diurutkan dari yang paling baru.
-/// Setiap baris berisi: id, user_id, amount_before, amount, keterangan, created_at.
+/// Mengembalikan maksimal 50 transaksi terbaru sebagai Vec<TransactionItem>,
+/// siap dikonsumsi frontend tanpa perlu kalkulasi tambahan.
 pub async fn get_savings_history(
     app_handle: &tauri::AppHandle,
     access_token: &str,
-    target_user_id: Option<&str>,
-) -> Result<Vec<SavingsRecord>, String> {
+    target_user_id: &str,
+) -> Result<Vec<TransactionItem>, String> {
     let config = AppConfig::init();
     let client = Client::builder()
         .timeout(std::time::Duration::from_secs(15))
         .build()
         .unwrap_or_else(|_| Client::new());
 
-    let mut url = format!(
-        "{}/rest/v1/savings?select=*&order=created_at.desc&limit=50",
-        config.supabase_url
+    let url = format!(
+        "{}/rest/v1/savings?select=*&order=created_at.desc&limit=50&user_id=eq.{}",
+        config.supabase_url, target_user_id
     );
-
-    // Jika Admin mengirimkan ID spesifik, filter berdasarkan user_id tersebut
-    if let Some(uid) = target_user_id {
-        url = format!("{}&user_id=eq.{}", url, uid);
-    }
 
     let resp = client
         .get(&url)
@@ -110,10 +101,30 @@ pub async fn get_savings_history(
         "Terjadi kesalahan saat membaca riwayat transaksi.".to_string()
     })?;
 
+    // Kalkulasi dilakukan di backend: nominal selisih dan tipe transaksi (income/expense)
+    let items: Vec<TransactionItem> = records.into_iter().enumerate().map(|(i, rec)| {
+        let before  = rec.amount_before.unwrap_or(0);
+        let after   = rec.amount.unwrap_or(0);
+        let is_income = after >= before;
+        let nominal   = (after - before).unsigned_abs() as i64;
+
+        let name = rec.keterangan
+            .filter(|s| !s.is_empty())
+            .unwrap_or_else(|| if is_income { "Setoran".to_string() } else { "Penarikan".to_string() });
+
+        TransactionItem {
+            id: rec.id.unwrap_or_else(|| i.to_string()),
+            name,
+            date: rec.created_at.unwrap_or_default(),
+            nominal,
+            transaction_type: if is_income { "income".to_string() } else { "expense".to_string() },
+        }
+    }).collect();
+
     write_local_log(
         app_handle,
         "INFO",
-        &format!("Berhasil mengambil {} riwayat transaksi.", records.len()),
+        &format!("Berhasil mengambil dan menghitung {} riwayat transaksi.", items.len()),
     );
-    Ok(records)
+    Ok(items)
 }
