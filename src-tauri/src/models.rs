@@ -19,12 +19,12 @@ pub struct Profile {
     pub user_id: String,
     pub email: String,
     pub username: String,
-    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub photo_url: Option<String>,
     pub role: String,
-    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub status: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub created_at: Option<String>,
 }
 
@@ -43,15 +43,15 @@ pub struct Scan {
 }
 
 // 4. Tabel pricelist
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct Pricelist {
-    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub id: Option<String>,
     pub labels: String,
     pub price: i64,
-    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub img_url: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub created_at: Option<String>,
 }
 
@@ -103,15 +103,69 @@ pub struct TransactionItem {
     pub transaction_type: String,
 }
 
+// 8b. NasabahItem — respons daftar nasabah untuk fitur admin
+/// Berisi data profil nasabah (role=user) digabung dengan saldo terkini.
+/// Dikirim ke frontend setelah backend mengambil profil + kalkulasi saldo.
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct NasabahItem {
+    pub user_id: String,
+    pub username: String,
+    /// Email digunakan sebagai pengganti nomor HP (tidak ada kolom phone di tabel profiles)
+    pub email: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub photo_url: Option<String>,
+    /// Saldo terkini nasabah (Rupiah), 0 jika belum ada transaksi
+    pub saldo: i64,
+}
+
+// 9. AktivitasItem — satu entri aktivitas transaksi lintas nasabah (untuk admin dashboard)
+/// Mirip dengan TransactionItem tapi dilengkapi username nasabah pelaku transaksi.
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct AktivitasItem {
+    pub id: String,
+    /// Nama nasabah pelaku transaksi (di-lookup dari HashMap profil, bukan query per baris)
+    pub username: String,
+    /// UUID nasabah — berguna untuk navigasi ke halaman detail nasabah
+    pub user_id: String,
+    /// Timestamp ISO dari created_at
+    pub date: String,
+    /// Keterangan transaksi atau label default ("Setoran" / "Penarikan")
+    pub keterangan: String,
+    /// Selisih absolut antara amount dan amount_before
+    pub nominal: i64,
+    /// "income" jika saldo naik, "expense" jika saldo turun
+    pub transaction_type: String,
+}
+
+// 10. AdminDashboard — respons lengkap halaman dashboard admin
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct AdminDashboard {
+    /// Total saldo semua nasabah (Rupiah)
+    pub total_saldo: i64,
+    /// Jumlah nasabah (role = 'users')
+    pub total_nasabah: i64,
+    /// 10 transaksi terbaru dari seluruh nasabah, diurutkan dari yang paling baru
+    pub aktivitas_terbaru: Vec<AktivitasItem>,
+}
+
 // 8. Tabel tanggal (Jadwal Setor Nasabah)
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Schedule {
-    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub id_tanggal: Option<String>,
     pub waktu_buka: String,
     pub lokasi: String,
     pub waktu_tutup: String,
     pub tanggal: String,
+}
+
+// 8b. Payload untuk tambah/edit jadwal (tanpa id, karena UUID auto-generated)
+#[derive(Debug, Serialize, Deserialize)]
+pub struct ScheduleInput {
+    pub tanggal: String,    // "YYYY-MM-DD"
+    pub waktu_buka: String, // "HH:MM:00+08" (WITA)
+    pub waktu_tutup: String,// "HH:MM:00+08" (WITA)
+    pub lokasi: String,
 }
 
 // Brankas RAM Aplikasi

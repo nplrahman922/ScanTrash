@@ -3354,6 +3354,7 @@ dependencies = [
 name = "scantrash"
 version = "0.1.0"
 dependencies = [
+ "base64 0.22.1",
  "chrono",
  "dotenvy",
  "dotenvy_macro",

@@ -22,7 +22,7 @@
       <nav class="flex-1 flex flex-col py-5">
 
         <router-link 
-          to="/dashboard"
+          to="/admin-dashboard"
           class="flex items-center py-4 px-5 text-gray-800 text-base hover:bg-gray-100 transition-colors"
           @click="closeSidebar"
         >
@@ -31,7 +31,7 @@
         </router-link>
 
         <router-link 
-          to="/nasabah"
+          to="/admin-nasabah"
           class="flex items-center py-4 px-5 text-gray-800 text-base hover:bg-gray-100"
           @click="closeSidebar"
         >
@@ -40,7 +40,7 @@
         </router-link>
 
         <router-link 
-          to="/katalog"
+          to="/admin-katalog"
           class="flex items-center py-4 px-5 hover:bg-gray-100"
           @click="closeSidebar"
         >
@@ -58,7 +58,7 @@
         </router-link>
 
         <router-link 
-          to="/jadwal"
+          to="/admin-jadwal"
           class="flex items-center py-4 px-5 hover:bg-gray-100"
           @click="closeSidebar"
         >

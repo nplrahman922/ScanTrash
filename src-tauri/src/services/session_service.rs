@@ -1,14 +1,14 @@
-use tauri::{AppHandle, Manager};
-use tauri_plugin_store::StoreExt;
-use serde_json::json;
 use crate::models::AppState;
 use magic_crypt::{new_magic_crypt, MagicCryptTrait};
+use serde_json::json;
+use tauri::{AppHandle, Manager};
+use tauri_plugin_store::StoreExt;
 
 pub fn get_session(app_handle: &AppHandle) -> (Option<String>, Option<String>) {
     let state = app_handle.state::<AppState>();
     // AMBIL KUNCI DARI .ENV SAAT KOMPILASI
     let mc = new_magic_crypt!(dotenvy_macro::dotenv!("SESSION_SECRET_KEY"), 256);
-    
+
     let mut access_opt = state.access_token.lock().unwrap().clone();
     let mut refresh_opt = state.refresh_token.lock().unwrap().clone();
 
@@ -42,7 +42,7 @@ pub fn get_session(app_handle: &AppHandle) -> (Option<String>, Option<String>) {
 pub fn save_session(app_handle: &AppHandle, access_token: &str, refresh_token: &str) {
     let state = app_handle.state::<AppState>();
     let mc = new_magic_crypt!(dotenvy_macro::dotenv!("SESSION_SECRET_KEY"), 256);
-    
+
     // Simpan token ASLI di RAM (karena RAM tidak bisa disedot dengan mudah)
     *state.access_token.lock().unwrap() = Some(access_token.to_string());
     *state.refresh_token.lock().unwrap() = Some(refresh_token.to_string());
@@ -61,7 +61,7 @@ pub fn save_session(app_handle: &AppHandle, access_token: &str, refresh_token: &
 // 3. Fungsi Menghapus Token (Kosongkan RAM dan Disk)
 pub fn clear_session(app_handle: &AppHandle) {
     let state = app_handle.state::<AppState>();
-    
+
     // Hapus RAM
     *state.access_token.lock().unwrap() = None;
     *state.refresh_token.lock().unwrap() = None;

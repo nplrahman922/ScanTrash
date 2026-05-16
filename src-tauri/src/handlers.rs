@@ -6,3 +6,4 @@ pub mod local_log_handler;
 pub mod scan_handler;
 pub mod savings_handler;
 pub mod schedule_handler;
+pub mod admin_handler;

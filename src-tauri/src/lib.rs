@@ -43,6 +43,17 @@ pub fn run() {
             handlers::savings_handler::get_balance_command,
             handlers::savings_handler::get_savings_history_command,
             handlers::schedule_handler::get_schedules_command,
+            handlers::schedule_handler::create_schedule_command,
+            handlers::schedule_handler::update_schedule_command,
+            handlers::schedule_handler::delete_schedule_command,
+            handlers::admin_handler::get_nasabah_list_command,
+            handlers::admin_handler::get_admin_dashboard_command,
+            handlers::admin_handler::create_setoran_command,
+            handlers::admin_handler::create_penarikan_command,
+            handlers::pricelist_handler::get_pricelist_command,
+            handlers::pricelist_handler::create_pricelist_command,
+            handlers::pricelist_handler::update_pricelist_command,
+            handlers::pricelist_handler::delete_pricelist_command,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

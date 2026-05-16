@@ -8,3 +8,4 @@ pub mod ai_services;
 pub mod scan_service;
 pub mod savings_service;
 pub mod schedule_service;
+pub mod admin_service;

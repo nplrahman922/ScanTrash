@@ -7,6 +7,9 @@ import WalletView from '../views/WalletView.vue'
 import TrashTypeView from '../views/TrashTypeView.vue'
 import TipsView from '../views/TipsView.vue'
 import AdminDashboard from '../views/AdminDashboard.vue'
+import AdminNasabah from '../views/AdminNasabah.vue'
+import AdminJadwal from '../views/AdminJadwal.vue'
+import AdminKatalog from '../views/AdminKatalog.vue'
 import ScanView from '../views/ScanView.vue'
 
 const routes: Array<RouteRecordRaw> = [
@@ -54,6 +57,24 @@ const routes: Array<RouteRecordRaw> = [
         path: 'admin-dashboard',
         name: 'AdminDashboard',
         component: AdminDashboard,
+        meta: { requiresAuth: true }
+      },
+      {
+        path: 'admin-nasabah',
+        name: 'AdminNasabah',
+        component: AdminNasabah,
+        meta: { requiresAuth: true }
+      },
+      {
+        path: 'admin-jadwal',
+        name: 'AdminJadwal',
+        component: AdminJadwal,
+        meta: { requiresAuth: true }
+      },
+      {
+        path: 'admin-katalog',
+        name: 'AdminKatalog',
+        component: AdminKatalog,
         meta: { requiresAuth: true }
       },
     ]

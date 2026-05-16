@@ -24,13 +24,23 @@ HF_Token=hf_tokenhuggingfaceawdfaslkfe
 | `get_profile_command` | Ambil profile user yang login | ✅ Ya | `Profile` (single object) |
 | `logout_command` | Logout user | ✅ Ya | `()` |
 | `get_pricelist_command` | Ambil daftar harga sampah | ✅ Ya | `Vec<Pricelist>` (array) |
-| `create_log_command` | Log aktivitas user secara online dan disimpan di supabase | ✅ Ya | `()` |
-| `write_local_log_command` | Log aktivitas user secara lokal (dengan timestamp otomatis) | ❌ Tidak | `()` |
-| `read_local_log_command` | Baca seluruh isi file log lokal dari HP | ❌ Tidak | `String` |
-| `scan_trash` | Pindai sampah | ✅ Ya | `Vec<ScanResult>` (array) |
+| `create_log_command` | Log aktivitas ke Supabase (audit trail) | ✅ Ya | `()` |
+| `write_local_log_command` | Log aktivitas lokal (dengan timestamp otomatis) | ❌ Tidak | `()` |
+| `read_local_log_command` | Baca isi file log lokal dari HP | ❌ Tidak | `String` |
+| `scan_trash` | Pindai sampah via AI | ✅ Ya | `Vec<ScanResult>` (array) |
 | `get_balance_command` | Ambil saldo nasabah terkini | ✅ Ya | `i64` (number) |
-| `get_savings_history_command` | Ambil riwayat transaksi nasabah | ✅ Ya | `Vec<SavingsRecord>` (array) |
+| `get_savings_history_command` | Ambil riwayat transaksi nasabah | ✅ Ya | `Vec<TransactionItem>` (array) |
 | `get_schedules_command` | Ambil jadwal setor (buka/tutup) | ✅ Ya | `Vec<Schedule>` (array) |
+| `get_nasabah_list_command` | Daftar nasabah + saldo ⭐ Admin | ✅ Ya | `Vec<NasabahItem>` |
+| `get_admin_dashboard_command` | Data dashboard admin ⭐ Admin | ✅ Ya | `AdminDashboard` |
+| `create_setoran_command` | Setor saldo ke nasabah ⭐ Admin | ✅ Ya | `()` |
+| `create_penarikan_command` | Tarik saldo dari nasabah ⭐ Admin | ✅ Ya | `()` |
+| `create_schedule_command` | Tambah jadwal setor ⭐ Admin | ✅ Ya | `()` |
+| `update_schedule_command` | Edit jadwal setor ⭐ Admin | ✅ Ya | `()` |
+| `delete_schedule_command` | Hapus jadwal setor ⭐ Admin | ✅ Ya | `()` |
+| `create_pricelist_command` | Tambah item katalog harga + upload gambar ⭐ Admin | ✅ Ya | `()` |
+| `update_pricelist_command` | Edit item katalog harga ⭐ Admin | ✅ Ya | `()` |
+| `delete_pricelist_command` | Hapus item katalog harga + gambar ⭐ Admin | ✅ Ya | `()` |
 
 ---
 
@@ -700,6 +710,509 @@ async function ambilJadwal() {
 
 ---
 
+### 1️⃣2️⃣ `get_nasabah_list_command` ⭐ Admin Only
+
+**Fungsi:** Mengambil daftar semua nasabah (role `users`) beserta saldo terkini masing-masing. Mendukung pencarian berdasarkan username. **Hanya bisa diakses oleh admin.**
+
+**Parameter:**
+```typescript
+{
+  keyword: string  // Kata kunci pencarian username (case-insensitive, partial match).
+                   // Kirim string kosong "" untuk mengambil semua nasabah.
+}
+```
+
+**Return Type:** `NasabahItem[]` (Array)
+
+**Response Type:**
+```typescript
+interface NasabahItem {
+  user_id: string;       // UUID nasabah
+  username: string;      // Nama nasabah
+  email: string;         // Email (ditampilkan sebagai info kontak)
+  photo_url?: string;    // URL foto profil (opsional)
+  saldo: number;         // Saldo terkini dalam Rupiah (0 jika belum ada transaksi)
+}
+```
+
+**Kapan digunakan:**
+- Halaman admin untuk melihat & mencari daftar nasabah
+- Sebelum admin memilih nasabah untuk melihat detail / riwayat transaksi
+
+**Code Example:**
+```typescript
+import { invoke } from "@tauri-apps/api/core";
+
+interface NasabahItem {
+  user_id: string;
+  username: string;
+  email: string;
+  photo_url?: string;
+  saldo: number;
+}
+
+// 1. Tampilkan semua nasabah saat halaman dimuat
+async function muatSemuaNasabah() {
+  try {
+    const daftar = await invoke<NasabahItem[]>("get_nasabah_list_command", {
+      keyword: "",
+    });
+    console.log(`Total ${daftar.length} nasabah ditemukan.`);
+    // Simpan ke store / tampilkan di UI
+    adminStore.setNasabahList(daftar);
+  } catch (error) {
+    console.error("Gagal memuat daftar nasabah:", error);
+    showErrorToast(String(error));
+  }
+}
+
+// 2. Cari nasabah berdasarkan nama (dipanggil saat input search berubah)
+async function cariNasabah(keyword: string) {
+  try {
+    const hasil = await invoke<NasabahItem[]>("get_nasabah_list_command", {
+      keyword: keyword,  // Contoh: "pra" → akan menemukan "Prabowo", "Prasetiyo", dll.
+    });
+    adminStore.setNasabahList(hasil);
+  } catch (error) {
+    console.error("Gagal mencari nasabah:", error);
+    showErrorToast(String(error));
+  }
+}
+
+// 3. Setelah memilih nasabah, gunakan user_id-nya untuk cek saldo atau riwayat
+async function lihatDetailNasabah(nasabah: NasabahItem) {
+  // Gunakan get_balance_command atau get_savings_history_command
+  const riwayat = await invoke("get_savings_history_command", {
+    targetUserId: nasabah.user_id,
+  });
+}
+```
+
+**Error yang Mungkin Dikembalikan ke Frontend:**
+| Pesan Error | Penyebab |
+|---|---|
+| `"Akses ditolak: Tidak ada sesi aktif."` | User belum login |
+| `"Akses ditolak: Hanya admin yang dapat mengakses fitur ini."` | User login tapi bukan admin |
+| `"Gagal memuat daftar nasabah. Silakan coba lagi."` | Error network/server |
+
+> [!IMPORTANT]
+> Pencarian (`keyword`) dilakukan di **sisi backend** menggunakan filter `ilike` ke Supabase, bukan di frontend. Ini lebih efisien dan aman untuk data besar.
+
+> [!NOTE]
+> Jika saldo salah satu nasabah gagal diambil (misalnya jaringan sesaat bermasalah), backend akan default-kan saldo nasabah tersebut ke **0** dan tetap mengembalikan nasabah lain. Seluruh list tidak akan gagal karena satu nasabah bermasalah.
+
+---
+
+### 1️⃣3️⃣ `get_admin_dashboard_command` ⭐ Admin Only
+
+**Fungsi:** Mengambil semua data untuk halaman dashboard admin dalam satu panggilan:
+- Total saldo seluruh nasabah
+- Jumlah nasabah
+- 10 aktivitas transaksi terbaru dari semua nasabah
+
+**Parameter:** Tidak ada (token admin diambil otomatis dari sesi)
+
+**Return Type:** `AdminDashboard` (single object)
+
+**Response Type:**
+```typescript
+interface AdminDashboard {
+  total_saldo: number;           // Total saldo semua nasabah (Rupiah)
+  total_nasabah: number;         // Jumlah nasabah (role = 'users')
+  aktivitas_terbaru: AktivitasItem[];
+}
+
+interface AktivitasItem {
+  id: string;
+  username: string;             // Nama nasabah pelaku transaksi
+  user_id: string;              // UUID nasabah (untuk navigasi ke detail)
+  date: string;                 // ISO timestamp
+  keterangan: string;           // "Botol Plastik", "Setoran", "Penarikan", dll.
+  nominal: number;              // Nilai transaksi (selisih absolut, sudah dihitung backend)
+  transaction_type: "income" | "expense";
+}
+```
+
+**Kapan digunakan:**
+- Saat halaman dashboard admin pertama kali dimuat
+- Saat admin menekan tombol refresh
+
+**Code Example:**
+```typescript
+import { invoke } from "@tauri-apps/api/core";
+
+interface AktivitasItem {
+  id: string;
+  username: string;
+  user_id: string;
+  date: string;
+  keterangan: string;
+  nominal: number;
+  transaction_type: "income" | "expense";
+}
+
+interface AdminDashboard {
+  total_saldo: number;
+  total_nasabah: number;
+  aktivitas_terbaru: AktivitasItem[];
+}
+
+async function muatDashboardAdmin() {
+  try {
+    // Tidak perlu parameter — token admin diambil otomatis
+    const dashboard = await invoke<AdminDashboard>("get_admin_dashboard_command");
+
+    console.log("Total Saldo:", dashboard.total_saldo);        // Rp 500.000
+    console.log("Total Nasabah:", dashboard.total_nasabah);    // 15
+    console.log("Aktivitas:", dashboard.aktivitas_terbaru);    // Array[10]
+
+    // Tampilkan aktivitas terbaru di UI
+    dashboard.aktivitas_terbaru.forEach(item => {
+      const prefix = item.transaction_type === "income" ? "+" : "-";
+      console.log(`${item.username} | ${item.keterangan} | ${prefix}Rp${item.nominal}`);
+      // Navigasi ke detail: gunakan item.user_id
+    });
+
+  } catch (error) {
+    console.error("Gagal memuat dashboard:", error);
+    showErrorToast(String(error));
+  }
+}
+```
+
+**Error yang Mungkin Dikembalikan ke Frontend:**
+| Pesan Error | Penyebab |
+|---|---|
+| `"Akses ditolak: Tidak ada sesi aktif."` | Belum login |
+| `"Akses ditolak: Hanya admin yang dapat mengakses fitur ini."` | Bukan admin |
+| `"Gagal memuat data dashboard. Silakan coba lagi."` | Error network/server |
+
+> [!NOTE]
+> Aktivitas terbaru diambil dengan **1 query langsung ke tabel savings** (tanpa filter user_id), diurutkan dari yang paling baru, dibatasi 10 item. Username di-lookup dari cache profil (HashMap) sehingga tidak ada query tambahan per transaksi.
+
+---
+
+### 1️⃣4️⃣ `create_setoran_command` ⭐ Admin Only
+
+**Fungsi:** Menyetor saldo ke rekening nasabah tertentu. Backend otomatis membaca saldo terkini, menambahkannya dengan nominal, lalu menyimpan record baru ke tabel `savings`.
+
+**Parameter:**
+```typescript
+{
+  targetUserId: string  // UUID nasabah yang menerima setoran
+  nominal: number       // Jumlah rupiah yang disetor (harus > 0)
+  keterangan: string    // Deskripsi setoran, contoh: "Botol Plastik"
+}
+```
+
+**Return Type:** `()` (void — sukses jika tidak throw error)
+
+**Kapan digunakan:** Saat admin menekan konfirmasi di form setoran
+
+**Code Example:**
+```typescript
+import { invoke } from "@tauri-apps/api/core";
+
+async function konfirmasiSetoran(nasabahId: string, nominal: number, ket: string) {
+  try {
+    await invoke("create_setoran_command", {
+      targetUserId: nasabahId,
+      nominal: nominal,
+      keterangan: ket,
+    });
+    console.log("✅ Setoran berhasil");
+    // Refresh dashboard
+    await muatDashboard();
+  } catch (error) {
+    // Error message aman (tidak bocorkan detail teknis)
+    showErrorToast(String(error));
+  }
+}
+```
+
+**Error yang Mungkin Dikembalikan:**
+| Pesan Error | Penyebab |
+|---|---|
+| `"Akses ditolak: Tidak ada sesi aktif."` | Belum login |
+| `"Akses ditolak: Hanya admin yang dapat..."` | Bukan admin |
+| `"Jumlah setoran harus lebih dari Rp0."` | Nominal ≤ 0 |
+| `"Nasabah tidak ditemukan."` | targetUserId tidak valid |
+| `"Gagal menyimpan setoran ke server."` | Error network/DB |
+
+---
+
+### 1️⃣5️⃣ `create_penarikan_command` ⭐ Admin Only
+
+**Fungsi:** Menarik saldo dari rekening nasabah. Backend otomatis memvalidasi kecukupan saldo sebelum menyimpan transaksi.
+
+**Parameter:**
+```typescript
+{
+  targetUserId: string  // UUID nasabah yang ditarik saldonya
+  nominal: number       // Jumlah rupiah yang ditarik (harus > 0 dan ≤ saldo saat ini)
+  keterangan: string    // Deskripsi penarikan, contoh: "Pencairan tunai"
+}
+```
+
+**Return Type:** `()` (void)
+
+> [!IMPORTANT]
+> Backend secara otomatis mengambil saldo terkini dan memvalidasi: jika `nominal > saldo`, transaksi **ditolak** dan error message spesifik dikembalikan ke frontend beserta saldo terkini nasabah.
+
+**Code Example:**
+```typescript
+import { invoke } from "@tauri-apps/api/core";
+
+async function prosesPenarikan(nasabahId: string, nominal: number, ket: string) {
+  try {
+    await invoke("create_penarikan_command", {
+      targetUserId: nasabahId,
+      nominal: nominal,
+      keterangan: ket,
+    });
+    showSuccessToast("Penarikan berhasil!");
+  } catch (error) {
+    // Contoh error: "Saldo nasabah tidak mencukupi. Saldo saat ini: Rp15.000."
+    showErrorToast(String(error));
+  }
+}
+```
+
+**Error yang Mungkin Dikembalikan:**
+| Pesan Error | Penyebab |
+|---|---|
+| `"Jumlah penarikan harus lebih dari Rp0."` | Nominal ≤ 0 |
+| `"Saldo nasabah tidak mencukupi. Saldo saat ini: Rp{N}."` | Nominal > saldo terkini |
+| `"Gagal menyimpan penarikan ke server."` | Error network/DB |
+
+---
+
+### 1️⃣6️⃣ `create_schedule_command` ⭐ Admin Only
+
+**Fungsi:** Menambahkan jadwal setor baru ke tabel `tanggal`.
+
+**Parameter:**
+```typescript
+{
+  tanggal: string    // Format: "YYYY-MM-DD", contoh: "2026-06-01"
+  waktuBuka: string  // Format: "HH:MM", contoh: "09:00" (WITA)
+  waktuTutup: string // Format: "HH:MM", contoh: "12:00" (WITA)
+  lokasi: string     // Contoh: "Pos 1", "Gedung A"
+}
+```
+
+> [!NOTE]
+> Backend otomatis mengkonversi waktu dari `"HH:MM"` ke format PostgreSQL `"HH:MM:00+08"` (WITA = UTC+8) sebelum menyimpan ke DB.
+
+**Return Type:** `()` (void)
+
+**Code Example:**
+```typescript
+await invoke("create_schedule_command", {
+  tanggal: "2026-06-15",
+  waktuBuka: "09:00",
+  waktuTutup: "12:00",
+  lokasi: "Pos 1",
+});
+```
+
+**Error:** Semua field wajib diisi. Error: `"Semua field wajib diisi."`
+
+---
+
+### 1️⃣7️⃣ `update_schedule_command` ⭐ Admin Only
+
+**Fungsi:** Memperbarui jadwal yang sudah ada berdasarkan UUID.
+
+**Parameter:**
+```typescript
+{
+  idTanggal: string  // UUID jadwal yang akan diubah (dari id_tanggal di response get_schedules_command)
+  tanggal: string    // Format: "YYYY-MM-DD"
+  waktuBuka: string  // Format: "HH:MM"
+  waktuTutup: string // Format: "HH:MM"
+  lokasi: string
+}
+```
+
+**Return Type:** `()` (void)
+
+**Code Example:**
+```typescript
+await invoke("update_schedule_command", {
+  idTanggal: "uuid-jadwal-yang-mau-diubah",
+  tanggal: "2026-06-20",
+  waktuBuka: "10:00",
+  waktuTutup: "14:00",
+  lokasi: "Pos 2",
+});
+```
+
+---
+
+### 1️⃣8️⃣ `delete_schedule_command` ⭐ Admin Only
+
+**Fungsi:** Menghapus jadwal berdasarkan UUID.
+
+**Parameter:**
+```typescript
+{
+  idTanggal: string  // UUID jadwal yang akan dihapus
+}
+```
+
+**Return Type:** `()` (void)
+
+**Code Example:**
+```typescript
+await invoke("delete_schedule_command", {
+  idTanggal: "uuid-jadwal-yang-mau-dihapus",
+});
+```
+
+---
+
+### 1️⃣9️⃣ `create_pricelist_command` ⭐ Admin Only
+
+**Fungsi:** Menambahkan item baru ke katalog harga (tabel `pricelist`). Gambar PNG di-upload ke Supabase Storage bucket `photo_pricelist` dan URL-nya disimpan di kolom `img_url`.
+
+**Parameter:**
+```typescript
+{
+  labels: string       // Nama jenis sampah, contoh: "Plastik (PET)"
+  price: number        // Harga per kg dalam Rupiah (harus > 0)
+  imageBase64: string  // Data gambar PNG dalam format base64 TANPA prefix (wajib untuk item baru)
+                       // Contoh: "iVBORw0KGgo..." (bukan "data:image/png;base64,iVBOR...")
+}
+```
+
+> [!IMPORTANT]
+> **Validasi gambar dilakukan 2 kali:**
+> - **Frontend:** Cek `file.type === "image/png"` dan `file.size <= 524288` (512 KB) sebelum invoke
+> - **Backend:** Cek magic bytes PNG (`89 50 4E 47`) dan ukuran ≤ 512 KB setelah decode base64
+>
+> **Rollback otomatis:** Jika gambar berhasil diupload ke Storage tapi insert DB gagal, backend otomatis menghapus gambar dari Storage.
+
+**Cara ambil base64 dari file di frontend:**
+```typescript
+// Baca file sebagai base64, POTONG prefix data:image/png;base64,
+const onFileSelect = (event: Event) => {
+  const file = (event.target as HTMLInputElement).files?.[0];
+  if (!file) return;
+
+  // Validasi frontend (sebelum kirim ke backend)
+  if (file.type !== "image/png") {
+    showError("Hanya file PNG yang diizinkan.");
+    return;
+  }
+  if (file.size > 524288) {  // 512 KB
+    showError(`File terlalu besar (${Math.round(file.size / 1024)} KB). Maksimal 512 KB.`);
+    return;
+  }
+
+  const reader = new FileReader();
+  reader.onload = (e) => {
+    const result = e.target?.result as string;
+    // PENTING: Potong prefix "data:image/png;base64," — kirim hanya bagian setelah koma
+    const base64 = result.split(",")[1] ?? "";
+    form.imageBase64 = base64;
+    form.imagePreviewUrl = result;  // Data URL untuk <img> preview
+  };
+  reader.readAsDataURL(file);
+};
+
+// Invoke ke backend
+await invoke("create_pricelist_command", {
+  labels: "Plastik (PET)",
+  price: 4000,
+  imageBase64: form.imageBase64,  // Base64 tanpa prefix
+});
+```
+
+**Error yang Mungkin Dikembalikan:**
+| Pesan Error | Penyebab |
+|---|---|
+| `"Nama sampah tidak boleh kosong."` | `labels` kosong |
+| `"Harga harus lebih dari Rp0."` | `price` ≤ 0 |
+| `"Gambar wajib dipilih untuk item baru."` | `imageBase64` kosong |
+| `"File harus berformat PNG."` | Bukan PNG (magic bytes salah) |
+| `"Ukuran gambar melebihi batas 512 KB (saat ini: N KB)."` | File > 512 KB |
+| `"Gagal menyimpan gambar ke server."` | Error upload ke Storage |
+| `"Gagal menyimpan item ke server."` | Error insert DB |
+
+---
+
+### 2️⃣0️⃣ `update_pricelist_command` ⭐ Admin Only
+
+**Fungsi:** Memperbarui item pricelist. Gambar bersifat **opsional** — jika `imageBase64` dikosongkan, gambar lama dipertahankan.
+
+**Parameter:**
+```typescript
+{
+  id: string              // UUID item yang diupdate (dari field `id` di response get_pricelist_command)
+  labels: string          // Nama baru
+  price: number           // Harga baru
+  imageBase64: string     // Base64 PNG tanpa prefix; KOSONGKAN jika tidak ganti gambar
+  currentImgUrl: string   // URL gambar saat ini — digunakan backend untuk hapus gambar lama
+                          // jika ada gambar baru. Ambil dari field `img_url` item yang sedang diedit.
+}
+```
+
+> [!NOTE]
+> Jika `imageBase64` dikosongkan (`""`), backend hanya mengupdate `labels` dan `price` — field `img_url` di DB tidak disentuh.
+
+**Code Example:**
+```typescript
+// Mode edit: tidak ganti gambar
+await invoke("update_pricelist_command", {
+  id: item.id,
+  labels: "Plastik Daur Ulang",
+  price: 4500,
+  imageBase64: "",              // Kosong = tidak ganti gambar
+  currentImgUrl: item.img_url,  // URL lama tetap disimpan
+});
+
+// Mode edit: ganti gambar
+await invoke("update_pricelist_command", {
+  id: item.id,
+  labels: "Plastik Daur Ulang",
+  price: 4500,
+  imageBase64: newImageBase64,   // Base64 PNG baru
+  currentImgUrl: item.img_url,   // URL lama → backend hapus setelah upload baru sukses
+});
+```
+
+---
+
+### 2️⃣1️⃣ `delete_pricelist_command` ⭐ Admin Only
+
+**Fungsi:** Menghapus item pricelist dari DB **dan** menghapus gambarnya dari Supabase Storage secara bersamaan.
+
+**Parameter:**
+```typescript
+{
+  id: string      // UUID item yang dihapus
+  imgUrl: string  // URL gambar item (isi dengan img_url dari item); kosong jika tidak ada gambar
+}
+```
+
+> [!NOTE]
+> Penghapusan gambar dari Storage bersifat **best-effort** — jika gagal (misal file sudah tidak ada), item DB tetap dihapus dan tidak throw error. Hanya warning di local log.
+
+**Code Example:**
+```typescript
+await invoke("delete_pricelist_command", {
+  id: item.id,
+  imgUrl: item.img_url ?? "",
+});
+// Setelah ini, refresh list
+await fetchPricelist();
+```
+
+---
+
+
+
 ## 📊 Complete Data Models
 
 ### 1. Profile
@@ -715,15 +1228,15 @@ interface Profile {
 }
 ```
 
-### 2. Pricelist
+### 2. PricelistItem
 ```typescript
-interface Pricelist {
-  id: string;
-  trash_type: string;
-  description?: string;
-  price_per_kg: number;
-  unit: string;        // "kg", "pcs", etc
-  category?: string;
+interface PricelistItem {
+  id?: string;       // UUID (auto-generated oleh Supabase)
+  labels: string;    // Nama jenis sampah, contoh: "Plastik (PET)"
+  price: number;     // Harga per kg dalam Rupiah
+  img_url?: string;  // Public URL gambar dari Supabase Storage bucket photo_pricelist
+                     // ⚠️ PERHATIAN: Nilai lama mungkin "0" (string, bukan null).
+                     // Selalu validasi: isValid = img_url && img_url !== "0" && img_url.startsWith("http")
   created_at?: string;
 }
 ```
@@ -736,7 +1249,29 @@ interface LogPayload {
 }
 ```
 
-### 4. Additional Models (Reference)
+### 4. ScheduleItem
+```typescript
+interface ScheduleItem {
+  id_tanggal?: string;  // UUID jadwal
+  tanggal: string;      // "YYYY-MM-DD"
+  waktu_buka: string;   // "HH:MM:SS+08" (WITA) — ambil HH:MM dengan .slice(0,5)
+  waktu_tutup: string;  // "HH:MM:SS+08" (WITA) — ambil HH:MM dengan .slice(0,5)
+  lokasi: string;
+}
+```
+
+### 5. NasabahItem
+```typescript
+interface NasabahItem {
+  user_id: string;    // UUID nasabah
+  username: string;
+  email: string;
+  photo_url?: string;
+  saldo: number;      // 0 jika belum ada transaksi
+}
+```
+
+### 6. Additional Models (Reference)
 ```typescript
 // Referensi tabel transaksi scan
 interface Scan {
@@ -1030,10 +1565,22 @@ Jika ada issue atau pertanyaan:
 
 ---
 
-**Last Updated:** 2026-05-09 — User Feature Completion (Wallet & Schedules)
+**Last Updated:** 2026-05-17 — Admin Transaction & CRUD Features
 **Status:** Ready for Frontend Integration ✅
 
 ### Changelog
+- **2026-05-17:**
+  - **NEW API (Admin):** `create_setoran_command` — setor saldo ke nasabah (dengan validasi nominal > 0).
+  - **NEW API (Admin):** `create_penarikan_command` — tarik saldo dari nasabah (dengan validasi kecukupan saldo otomatis).
+  - **NEW API (Admin):** `create_schedule_command` — tambah jadwal setor.
+  - **NEW API (Admin):** `update_schedule_command` — edit jadwal setor.
+  - **NEW API (Admin):** `delete_schedule_command` — hapus jadwal setor.
+  - **NEW API (Admin):** `create_pricelist_command` — tambah item katalog + upload gambar PNG ke Supabase Storage.
+  - **NEW API (Admin):** `update_pricelist_command` — edit item katalog (gambar opsional, rollback otomatis jika DB gagal).
+  - **NEW API (Admin):** `delete_pricelist_command` — hapus item katalog + hapus gambar dari Storage.
+  - **SECURITY:** Dual-log policy: local log tanpa detail finansial; audit trail lengkap di Supabase `log_system`.
+  - **ROLLBACK:** create/update pricelist otomatis hapus gambar dari Storage jika insert/update DB gagal.
+  - **FIX:** Model `Pricelist` di dokumentasi diperbarui agar sesuai kolom DB aktual.
 - **2026-05-09:** 
   - **NEW API:** `get_balance_command` ditambahkan untuk mengambil saldo realtime dari Supabase.
   - **NEW API:** `get_savings_history_command` ditambahkan untuk mengambil 50 riwayat transaksi (`savings`) terbaru.
